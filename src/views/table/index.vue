@@ -69,8 +69,10 @@ export default {
   methods: {
     fetchData() {
       this.listLoading = true
-      getList().then(response => {
-        this.list = response.data.items
+      getList({
+        pageNum: 1,
+        pageSize: 10
+      }).then(response => {
         this.listLoading = false
       })
     }
