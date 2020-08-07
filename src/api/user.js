@@ -22,3 +22,11 @@ export function logout() {
     method: 'post'
   })
 }
+// 用户查询
+export function query(data) {
+  return request({
+    url: '/user/queryUserInfo',
+    method: 'post',
+    data
+  })
+}

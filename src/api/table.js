@@ -7,3 +7,18 @@ export function getList(data) {
     data
   })
 }
+export function getDelete(data) {
+  return request({
+    url: '/gift/delete',
+    method: 'POST',
+    data
+  })
+}
+
+export function getS(data) {
+  return request({
+    url: '/gift/save',
+    method: 'POST',
+    data
+  })
+}
