@@ -1,0 +1,19 @@
+import request from '@/utils/request'
+// 标签
+export function editCoin(data) {
+  return request({
+    url: '/chat/order/editCoin',
+    method: 'POST',
+    contentType: 'x-www-form-urlencoded',
+    data
+  })
+}
+
+export function updateVip(data) {
+  return request({
+    url: '/chat/order/editVip',
+    method: 'POST',
+    contentType: 'x-www-form-urlencoded',
+    data
+  })
+}

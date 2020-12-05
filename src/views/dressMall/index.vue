@@ -1,0 +1,344 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">装扮商城</div>
+      <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length===0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="装扮名称">
+        <template slot-scope="scope">{{ scope.row.name }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="装扮图标">
+        <template slot-scope="scope"><el-image
+          style="width: 80px; height: 80px;cursor: pointer;"
+          :src="scope.row.icon"
+          @click="handlImg(scope.row)"
+        /></template>
+      </el-table-column>
+      <el-table-column align="center" label="条件等级">
+        <template slot-scope="scope">{{ scope.row.level }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="启用状态">
+        <template slot-scope="scope">
+          <el-switch
+            v-model="scope.row.code"
+            active-text="启用"
+            inactive-text="停用"
+            :active-value="1"
+            :inactive-value="0"
+            @change="val => handleSwitch(val, scope.row.id)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="装扮类型">
+        <template slot-scope="scope">{{ map.type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="条件类型">
+        <template slot-scope="scope">{{ map.conditionType[scope.row.conditionType] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="条件描述">
+        <template slot-scope="scope">{{ scope.row.descInfo }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="价格">
+        <template slot-scope="scope">{{ scope.row.price }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+
+      <el-table-column label="操作" align="center">
+        <template slot-scope="scope" class="button">
+          <el-button size="mini" @click="showDialog('edit', scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog :visible.sync="dialogVisible.dressMall" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}装扮商城信息`" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="160px" :validate-on-rule-change="false" :model="form" :rules="rules" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="装扮名称">
+              <el-input v-model="form.name" />
+            </el-form-item>
+            <el-form-item label="装扮图标">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.icon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="装扮类型">
+              <el-select v-model="form.type" placeholder="请选择">
+                <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="条件类型">
+              <el-select v-model="form.conditionType" placeholder="请选择">
+                <el-option v-for="(value, key) in map.conditionType" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <!-- <el-form-item label="启用状态">
+              <el-select v-model="form.code" placeholder="请选择">
+                <el-option v-for="(value, key) in map.code" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item> -->
+            <el-form-item label="价格">
+              <el-input v-model="form.price" type="number" min="0" :step="0.1" />
+            </el-form-item>
+            <el-form-item label="条件等级" prop="level">
+              <el-input v-model="form.level" type="number" min="0" />
+            </el-form-item>
+            <el-form-item label="条件描述">
+              <el-input
+                v-model="form.descInfo"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4}"
+                placeholder="请输入内容"
+              />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input
+                v-model="form.remark"
+                placeholder="请输入备注"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4}"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="icon" @change="val=>uploadFile(val,['form','icon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.dressMall=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit('form')">提交</el-button>
+      </div>
+    </el-dialog>
+    <el-dialog
+      title="装扮图标展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { dressMallList, dressMallDeleteBatch, updatedRessMall } from '@/api/theTitle'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { uploadQNImg } from '@/api/user'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      rules: {
+        level: [
+          { required: true, message: '请输入等级', trigger: 'blur' }
+
+        ]
+      },
+      dialogVisible: {
+        dressMall: false,
+        imgVisible: false
+      },
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      form: {
+        code: '',
+        conditionType: '',
+        descInfo: '',
+        icon: '',
+        level: '',
+        name: '',
+        price: '',
+        remark: '',
+        type: ''
+      },
+      map: {
+        type: {
+          2: '头像框',
+          3: '聊天框',
+          4: '炫彩昵称',
+          5: '进场特效'
+        },
+        conditionType: {
+          0: '平民',
+          1: '骑士',
+          2: '子爵',
+          3: '侯爵',
+          4: '公爵',
+          5: '国王',
+          6: '皇帝',
+          7: '等级享有',
+          8: '特殊节假日享有',
+          9: '购买享有'
+        },
+        code: {
+          0: '停用',
+          1: '启用'
+        }
+
+      },
+      editImg: []
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+
+      })
+      dressMallList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageSize = val.size
+      this.pager.pageNo = val.index
+      this.fetchData()
+    },
+    handleSwitch(code, id) {
+      updatedRessMall({
+        id,
+        code
+      }, 'edit').then(res => {
+        this.fetchData()
+      })
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      this.$nextTick(() => {
+        this.$refs.form.clearValidate()
+      })
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.dressMall = true
+    },
+    updateSubmit(form) {
+      this.$refs[form].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+          _form = clearEmptyItem(_form)
+          updatedRessMall(_form, this.mode).then(res => {
+            this.$message.success(res.message)
+            this.dialogVisible.dressMall = false
+            this.fetchData()
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+          this.$message.success(res.message)
+        })
+      }
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要删除选中的商城装扮信息吗?', '提示')
+        .then(() => {
+          dressMallDeleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+    handlImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    }
+  }
+}
+
+</script>
+<style scoped lang="scss">
+.icon-container{
+    width: 80px;
+    height: 80px;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    position: relative;
+      cursor: pointer;
+    i{
+        display: block;
+        position: absolute;
+        font-size: 24px;
+        top:50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+    }
+}
+</style>

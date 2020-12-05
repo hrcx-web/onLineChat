@@ -1,0 +1,226 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-select v-model="filter.isAppAuto" clearable placeholder="请选择认证状态">
+            <el-option v-for="(value, key) in map.isAppAuto" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.isIdentAuto" clearable placeholder="请选择身份证审核状态">
+            <el-option v-for="(value, key) in map.isIdentAuto" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">用户实名认证</div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- <el-table-column
+        align="center"
+        type="selection"
+      /> -->
+      <el-table-column
+        align="center"
+        prop="name"
+        label="姓名"
+      />
+      <el-table-column
+        align="center"
+        prop="user"
+        label="昵称"
+      />
+      <el-table-column
+        align="center"
+        prop="phone"
+        label="手机号"
+      />
+      <el-table-column
+        align="center"
+        prop="identity"
+        label="身份证号"
+      />
+      <el-table-column
+        align="center"
+        prop="sysUserId"
+        label="身份证图片"
+      >
+        <template slot-scope="scope">
+          <el-image
+            :src="checkIcon"
+            style="width: 18px"
+            :preview-src-list="scope.row.srcList"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="isIdentAuto"
+        label="身份证审核状态"
+      >
+        <template slot-scope="scope">
+          {{ map.isIdentAuto[scope.row.isIdentAuto] }}
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="isAppAuto"
+        label="认证状态"
+      >
+        <template slot-scope="scope">
+          {{ map.isAppAuto[scope.row.isAppAuto] }}
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="autoTime"
+        label="申请时间"
+      />
+      <el-table-column
+        align="center"
+        label="上级/公会"
+        width="120px"
+      >
+        <template slot-scope="scope">
+          <p v-if="scope.row.toUserName">上级昵称:{{ scope.row.toUserName }}</p>
+          <p v-if="scope.row.tradeName">公会名称:{{ scope.row.tradeName }}</p>
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        label="操作"
+        width="150px"
+      >
+        <template slot-scope="scope">
+          <el-button type="primary" :disabled="true&&scope.row.isIdentAuto=='1'||scope.row.isIdentAuto=='2'" plain size="mini" @click="authUserInfo({userId: scope.row.id, status: 1}, scope.row)">通过</el-button>
+          <el-button size="mini" :disabled="true&&scope.row.isIdentAuto=='1'||scope.row.isIdentAuto=='2'" plain type="danger" @click="authUserInfo({userId: scope.row.id, status: 2}, scope.row)">驳回</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { queryVifyList, authUserInfo } from '@/api/user'
+import { initForm, copyObject } from '@/utils/index'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      checkIcon: require('../../assets/check.png'),
+      mode: '',
+      dialogVisible: {
+        info: false
+      },
+      multipleTable: [],
+      filter: {
+        isAppAuto: '',
+        isIdentAuto: ''
+      },
+      map: {
+        isAppAuto: {
+          0: '未认证',
+          1: '实名认证'
+        },
+        isIdentAuto: {
+          0: '待审核',
+          1: '审核通过',
+          2: '审核失败'
+        }
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      form: {
+        // platformName: '',
+        distributeType: '',
+        price: '',
+        // resetValue: '',
+        settleType: '',
+        sysUserId: ''
+        // threshold: '',
+        // url: ''
+      },
+      formLoading: false,
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    authUserInfo(data, item) {
+      authUserInfo(data).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+      })
+    },
+    selsChange(sels) {
+      this.multipleTable = sels
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.info = true
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      queryVifyList(_form)
+        .then((res) => {
+          const { rows = [], data = 0 } = res
+          if (Array.isArray(rows)) {
+            rows.forEach(item => {
+              item.srcList = item.idUrl.split(',') || []
+            })
+          }
+          this.tableData.array = rows
+          this.pager.total = data // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+</style>

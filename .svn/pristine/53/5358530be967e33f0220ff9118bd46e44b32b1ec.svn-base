@@ -1,0 +1,30 @@
+// 评论
+import request from '@/utils/request'
+
+// 查询分页
+export function commentList(params) {
+  return request({
+    url: '/chat/comment/list',
+    method: 'GET',
+    params
+  })
+}
+// 新增
+export function updateComment(params, type) {
+  return request({
+    url: `/chat/comment/${type}`,
+    contentType: type === 'add' ? 'application/json' : undefined,
+    method: type === 'edit' ? 'PUT' : 'POST',
+    params
+  })
+}
+
+// 批量删除
+
+export function deleteBatch(params, type) {
+  return request({
+    url: `/chat/comment/deleteBatch`,
+    method: 'DELETE',
+    params
+  })
+}

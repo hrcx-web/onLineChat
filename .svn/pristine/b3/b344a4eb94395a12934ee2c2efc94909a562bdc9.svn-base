@@ -1,0 +1,200 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.userId" placeholder="请输入用户id" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="filter.userName" placeholder="请输入举报人" style="width:140px" />
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">举报</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="用户id">
+        <template slot-scope="scope">{{ scope.row.userId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="举报人">
+        <template slot-scope="scope">{{ scope.row.userName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="被举报人">
+        <template slot-scope="scope">{{ scope.row.toUserName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="是否处理">
+        <template slot-scope="scope">{{ isOperator[scope.row.isOperator] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="举报理由">
+        <template slot-scope="scope">{{ scope.row.reason }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="举报时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="处理时间">
+        <template slot-scope="scope">{{ scope.row.updateTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="举报图">
+        <template slot-scope="scope">{{ scope.row.img }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="处理结果描述">
+        <template slot-scope="scope">{{ scope.row.result }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="150px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="20">
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button size="mini" @click="showDialog(scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <!-- 编辑 -->
+    <el-dialog :visible.sync="dialogVisible.report" width="350px" title="编辑举报信息" center style="z-index: 9999">
+      <el-form label-position="right" label-width="100px" :validate-on-rule-change="false" :model="rowd" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="20">
+            <el-form-item label="处理结果描述" prop="title">
+              <el-input v-model="rowd.result" />
+            </el-form-item>
+            <el-form-item label="举报图" prop="title">
+              <el-input v-model="rowd.img" />
+            </el-form-item>
+            <el-form-item label="举报理由">
+              <el-input v-model="rowd.reason" />
+            </el-form-item>
+            <el-form-item label="是否处理">
+              <el-select v-model="rowd.isOperator" placeholder="请选择">
+                <el-option v-for="(value, key) in isOperator" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.report=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+  </div>
+</template>
+
+<script>
+import { reportList, reportDelete, reportEdit } from '@/api/feedback'
+export default {
+  data() {
+    return {
+      tableData: {
+        loading: false,
+        array: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      isOperator: {
+        1: '是',
+        0: '否'
+      },
+      filter: {
+        userId: '',
+        userName: ''
+      },
+      dialogVisible: {
+        report: false
+      },
+      rowd: []
+    //   form:{
+    //       result:'',
+    //       img:'',
+    //       reason:'',
+    //       isOperator:'',
+    //   }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      }, this.filter)
+      reportList(_form)
+        .then(res => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.tableData.total = result.total
+        //   console.log(res)
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join(',')
+      this.$confirm('确定要删除选中的举报信息吗?', '提示')
+        .then(() => {
+          reportDelete({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 编辑
+    showDialog(row) {
+      this.dialogVisible.report = true
+      this.rowd = row
+    },
+    updateSubmit() {
+      reportEdit({
+        id: this.rowd.id,
+        result: this.rowd.result,
+        reason: this.rowd.reason,
+        isOperator: this.rowd.isOperator,
+        img: this.rowd.img
+
+      }).then(data => {
+        this.$message.success(data.message)
+        this.dialogVisible.report = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+      })
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

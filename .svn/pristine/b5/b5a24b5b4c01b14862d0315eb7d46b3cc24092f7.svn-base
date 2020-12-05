@@ -1,0 +1,102 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">公会成员</div>
+      <div class="top-right">
+        <!-- <el-button size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button> -->
+        <!-- <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button> -->
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="用户名">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="头像">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px"
+            :src="scope.row.icon"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="性别">
+        <template slot-scope="scope">{{ map.gender[scope.row.gender] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="财富等级">
+        <template slot-scope="scope">{{ scope.row.richLevel }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="魅力等级">
+        <template slot-scope="scope">{{ scope.row.starLevel }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="角色">
+        <template slot-scope="scope">{{ map.role[scope.row.role] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="入会时间">
+        <template slot-scope="scope">{{ scope.row.updateTime }}</template>
+      </el-table-column>
+    </el-table>
+  </div>
+</template>
+
+<script>
+import { userList } from '@/api/union'
+export default {
+  data() {
+    return {
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      map: {
+        gender: {
+          1: '男',
+          2: '女'
+        },
+        role: {
+          1: '公会普通成员',
+          2: '公会管理员'
+        }
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      })
+      userList(_form).then(res => {
+        // const { result = {}} = res
+        this.tableData.array = res.rows
+        // this.tableData.total = result.total
+        // console.log(res)
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

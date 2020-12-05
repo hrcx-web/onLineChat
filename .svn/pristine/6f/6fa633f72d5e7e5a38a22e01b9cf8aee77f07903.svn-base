@@ -1,0 +1,293 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.name" clearable placeholder="请输入用户名" />
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">访客相关</div>
+      <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" />
+      <el-table-column align="center" label="访问/被访问用户名">
+        <template slot-scope="scope">{{ scope.row.name }}</template>
+      </el-table-column>
+      <!-- <el-table-column align="center" label="访问uid">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column> -->
+      <!-- <el-table-column align="center" label="被访问uid">
+        <template slot-scope="scope">{{ scope.row.byUser }}</template>
+      </el-table-column> -->
+      <el-table-column align="center" label="访问/被访问的头像">
+        <template slot-scope="scope">
+          <el-image
+            :src="checkIcon"
+            style="width: 18px"
+            :preview-src-list="scope.row.icon"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="访客/被访客年龄">
+        <template slot-scope="scope">{{ scope.row.age }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="环信号">
+        <template slot-scope="scope">{{ scope.row.imNumber }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="访问数量">
+        <template slot-scope="scope">{{ scope.row.num }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="时间">
+        <template slot-scope="scope">{{ scope.row.time }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="距离">
+        <template slot-scope="scope">{{ scope.row.distance }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="200px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="15">
+            <el-col :span="12">
+              <el-button style="width: 100%" size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="12" size="mini" tyle="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <!-- 访客信息框 -->
+    <el-dialog :visible.sync="dialogVisible.access" width="500px" :title="`${mode === 'add' ? '新增' : '编辑'}访客信息`" center style="z-index: 9999">
+      <el-form label-position="right" label-width="130px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22" />
+
+          <el-form-item label="访问/被访问用户名">
+            <el-input v-model="form.name" />
+          </el-form-item>
+          <!-- <el-form-item label="访问uid">
+            <el-input v-model="form.user" />
+          </el-form-item>
+          <el-form-item label="被访问uid">
+            <el-input v-model="form.byUser" />
+          </el-form-item> -->
+          <el-form-item label="图标">
+            <!-- <el-input v-model="form.icon" /> -->
+            <div class="icon-container" @click="changeClick('icon')">
+              <i v-if="!form.icon" class="el-icon-plus" />
+              <img v-else :src="form.icon" style="width:100%;height:100%" alt="">
+            </div>
+          </el-form-item>
+          <el-form-item label="访问/被访问年龄">
+            <el-input v-model="form.age" type="number" min="0" />
+          </el-form-item>
+          <el-form-item label="环信号">
+            <el-input v-model="form.imNumber" />
+          </el-form-item>
+          <el-form-item label="访问数量">
+            <el-input v-model="form.num" type="number" min="0" />
+          </el-form-item>
+          <el-form-item label="距离">
+            <el-input v-model="form.distance" />
+          </el-form-item>
+        </el-row>
+      </el-form>
+      <input type="file" class="icon" style="visibility: hidden" @change="uploadFile">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.access=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { accessList, updateAccess, deleteBatch } from '@/api/visitors'
+import { uploadQNImg } from '@/api/user'
+import Pagination from '@/components/Pagination'
+
+export default {
+  components: {
+    Pagination
+
+  },
+  data() {
+    return {
+      checkIcon: require('../../assets/check.png'),
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      dialogVisible: {
+        access: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [], // 批量
+      form: { // 新增
+        byUser: '',
+        distance: '',
+        icon: '',
+        imNumber: '',
+        name: '',
+        num: '',
+        user: '',
+        age: ''
+      },
+
+      filter: {
+        name: ''
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    //  访客
+
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      accessList(_form)
+        .then((res) => {
+          const { result = {}} = res
+          if (result.records) {
+            result.records.forEach(item => {
+              if (item.icon) {
+                item.icon = item.icon.split('|') || []
+              }
+            })
+          }
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    //    批量
+    selsChange(sels) {
+      this.sels = sels
+    },
+    // 新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.access = true
+    },
+    // 提交
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateAccess(_form, this.mode).then(res => {
+        // debugger
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.access = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.access = false
+        this.tableData.loading = false
+      })
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(list => list.id).join()
+      this.$confirm('确定要删除选中的访客信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+
+    // 添加图标
+    changeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this.form.icon = res.data
+          this.$message.success(res.message)
+        })
+      }
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.pageSize
+      this.fetchData()
+    }
+  }
+}
+
+</script>
+<style scoped lang="scss">
+
+.icon-container{
+  width:80px;
+  height: 80px;
+  position: relative;
+  border: 1px dashed #ccc;
+  border-radius: 5px;
+  cursor: pointer;
+   .el-icon-plus{
+       display: block;
+      font-size:24px;
+      position: absolute;
+      top:50%;
+      left:50% ;
+      transform: translate(-50%, -50%);
+   }
+}
+</style>

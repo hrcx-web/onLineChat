@@ -1,0 +1,458 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">VIP管理</div>
+      <div class="header-right">
+        <el-button type="success" plain @click="vipAdd">添加</el-button>
+        <el-button :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+      </div>
+    </div>
+
+    <el-table
+      v-loading="listLoading"
+      :data="list"
+      element-loading-text="Loading"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" width="55" />
+
+      <el-table-column align="center" label="原价" width="95">
+        <template slot-scope="scope">{{ scope.row.originalCost }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="有效天数" width="95">
+        <template slot-scope="scope">{{ scope.row.validity }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="图标" width="150">
+        <template slot-scope="scope"> <el-image
+          style="width: 100px; height: 100px"
+          class="headJig"
+          :src="scope.row.icon"
+          @click="changeImg(scope.row)"
+        /></template>
+      </el-table-column>
+      <el-table-column align="center" label="定价" width="95">
+        <template slot-scope="scope">{{ scope.row.cost }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="标题" width="120">
+        <template slot-scope="scope">{{ scope.row.title }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="特价" width="95">
+        <template slot-scope="scope">{{ scope.row.pricingCost }}</template>
+      </el-table-column>
+
+      <el-table-column label="操作" width="200" align="center">
+        <template slot-scope="scope">
+          <el-button type="info" plain size="mini" @click="handleClick(scope.row)">查看</el-button>
+          <el-button size="mini" @click="handleEdit(scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-pagination
+      :current-page="pageNo"
+      :page-sizes="[4, 5, 10, 20]"
+      :page-size="pageSize"
+      layout="total, sizes, prev, pager, next, jumper"
+      :total="total"
+      @size-change="handleSizeChange"
+      @current-change="change"
+      @prev-click="pre"
+      @next-click="nex"
+    />
+    <!-- 新增 -->
+    <el-dialog :visible.sync="newVisible" width="30%">
+      <el-form :label-position="labelPosition" label-width="100px" :model="from">
+        <el-form-item label="原价">
+          <el-input v-model="from.originalCost" />
+        </el-form-item>
+        <el-form-item label="图标地址">
+          <input type="file" @change="uploadFile" v-html="from.icon">
+          <el-image class="iconIMG" :src="Icon" />
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="from.title" />
+        </el-form-item>
+        <el-form-item label="有效天数">
+          <el-input v-model="from.validity" />
+        </el-form-item>
+        <el-form-item label="定价">
+          <el-input v-model="from.cost" />
+        </el-form-item>
+        <el-form-item label="特价">
+          <el-input v-model="from.pricingCost" />
+        </el-form-item>
+
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="hideNew">取 消</el-button>
+        <el-button type="primary" @click="changeNew">新增</el-button>
+      </span>
+    </el-dialog>
+    <!-- 编辑 -->
+    <el-dialog :visible.sync="dirVisible" width="30%">
+      <el-form :label-position="labelPosition" label-width="100px" :model="dirRow">
+        <el-form-item label="原价">
+          <el-input v-model="dirRow.originalCost" />
+        </el-form-item>
+        <el-form-item label="图标地址">
+          <input type="file" @change="uploadFiles" v-html="dirRow.icon">
+          <el-image class="iconIMG" :src="dirRow.icon" />
+        </el-form-item>
+        <el-form-item label="标题">
+          <el-input v-model="dirRow.title" />
+        </el-form-item>
+        <el-form-item label="有效天数">
+          <el-input v-model="dirRow.validity" />
+        </el-form-item>
+        <el-form-item label="定价">
+          <el-input v-model="dirRow.cost" />
+        </el-form-item>
+        <el-form-item label="特价">
+          <el-input v-model="dirRow.pricingCost" />
+        </el-form-item>
+
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="hideDir">取 消</el-button>
+        <el-button type="primary" @click="dirSure">确 定</el-button>
+      </span>
+    </el-dialog>
+    <!-- 查看详情 -->
+    <el-dialog
+      title="VIP信息"
+      center
+      :visible.sync="checkVisible"
+      width="30%"
+    >
+      <div class="box">
+        <div class="one">
+          <span>图标:</span>
+          <el-input v-model="handleRow.icon" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>费用/月:</span>
+          <el-input v-model="handleRow.monthCost" :disabled="true" />
+        </div>
+
+        <div class="one">
+          <span>标题:</span>
+          <el-input v-model="handleRow.title" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>原价:</span>
+          <el-input v-model="handleRow.originalCost" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>定价:</span>
+          <el-input v-model="handleRow.cost" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>特价:</span>
+          <el-input v-model="handleRow.pricingCost" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>有效天数:</span>
+          <el-input v-model="handleRow.validity" :disabled="true" />
+        </div>
+
+        <div class="one">
+          <span>费用/年:</span>
+          <el-input v-model="handleRow.yearCost" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>排序:</span>
+          <el-input v-model="handleRow.sort" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>费用/季度:</span>
+          <el-input v-model="handleRow.quarterCost" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>有效天数:</span>
+          <el-input v-model="handleRow.validity" :disabled="true" />
+        </div>
+        <div class="one">
+          <span>时间:</span>
+          <el-input v-model="handleRow.time" :disabled="true" />
+        </div>
+
+      </div>
+    </el-dialog>
+    <!-- 大头像 -->
+
+    <el-dialog
+      title="大图标"
+      center
+      :visible.sync="imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { vipQuery } from '@/api/VIP'
+import { deleteBatch } from '@/api/VIP'
+import { Add } from '@/api/VIP'
+import { uploadQNImg } from '@/api/user'
+import { dir } from '@/api/VIP'
+export default {
+  data() {
+    return {
+      list: [],
+      newVisible: false, // 新增
+      dirVisible: false, // 编辑
+      dirRow: [], // 存储编辑
+      listLoading: true,
+      labelPosition: 'right',
+      sels: [], // 选中的值显示
+      pageNo: 1, // 页数
+      pageSize: 10, // 条数
+      total: 1, // 总数
+      handleRow: [], // 查看详情
+      checkVisible: false,
+      editImg: [], // 大头像
+      imgVisible: false, // 头像的框
+      id: [], // 多图的
+      from: {
+        // 用于新增
+        title: '', // 标题
+        icon: '', // 图标
+        originalCost: '', // 原价
+        cost: '', // 定价
+        pricingCost: '', // 特价
+        validity: '' // 有效天数
+
+      },
+      Icon: '',
+      Bcon: ''// 编辑的图
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.listLoading = false
+      // 查询
+      vipQuery({
+        pageNo: this.pageNo,
+        pageSize: this.pageSize
+      })
+        .then((data) => {
+          if (data.code === 200) {
+            console.log(data)
+            this.list = data.result.records
+            this.total = data.result.total
+            // this.timestam = data.timestam
+          }
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+
+    // 复选框的操作
+    selsChange(sels) {
+      this.sels = sels
+    },
+    // 批量删除
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((list) => list.id).join()
+
+      this.$confirm('确定要删除选中的文件吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            if (data.code === 200) {
+              this.fetchData()
+              console.log(data.success)
+            }
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 添加
+    vipAdd() {
+      this.newVisible = true
+      this.from = {}
+      this.Icon = ''
+    },
+    // 取消新增
+    hideNew() {
+      this.newVisible = false
+    },
+
+    // 新增
+    changeNew() {
+      Add({
+        title: this.from.title, // 标题
+        icon: this.Icon, // 图标
+        originalCost: this.from.originalCost, // 原价
+        cost: this.from.cost, // 定价
+        pricingCost: this.from.pricingCost, // 特价
+        validity: this.from.validity // 有效天数
+      })
+        .then((data) => {
+          if (data.code === 200) {
+            this.newVisible = false
+            this.fetchData()
+            console.log(data)
+          }
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 新增图标
+    uploadFile(e) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          // 新增的
+          this.Icon = res.data
+        })
+      }
+    },
+    // 编辑的图标
+    uploadFiles(e) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          // 新增的
+          this.dirRow.icon = res.data
+        })
+      }
+    },
+    // 页面显示的大图标
+    changeImg(row) {
+      this.imgVisible = true
+      this.editImg = row
+    },
+    // 编辑
+    handleEdit(row) {
+      this.dirVisible = true
+      this.dirRow = row
+      this.id = row.id
+    },
+    hideDir() {
+      this.dirVisible = false
+    },
+    // 编辑保存
+    dirSure() {
+      this.dirVisible = false
+      dir({
+        title: this.dirRow.title, // 标题
+        icon: this.dirRow.icon, // 图标
+        originalCost: this.dirRow.originalCost, // 原价
+        cost: this.dirRow.cost, // 定价
+        pricingCost: this.dirRow.pricingCost, // 特价
+        validity: this.dirRow.validity, // 有效天数
+        id: this.dirRow.id
+
+      }).then(data => {
+        if (data.code === 200) {
+          console.log(data.success)
+        }
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    // 查看
+    handleClick(row) {
+      this.handleRow = row
+      this.checkVisible = true
+    },
+
+    // 上一页
+    pre() {
+      this.pageNo--
+      if (this.pageNo < 1) {
+        this.pageNo = 1
+      }
+      this.fetchData()
+    },
+    // 下一页
+    nex() {
+      this.pageNo++
+      if (this.pageNo > this.total) {
+        this.pageNo = this.total
+      }
+      this.fetchData()
+    },
+    // 点击
+    change(currentPage) {
+      this.pageNo = currentPage
+      this.fetchData()
+    },
+
+    handleSizeChange(val) {
+      this.pageSize = val
+      this.change(this.pageNo)
+      this.fetchData()
+    }
+
+  }
+}
+</script>
+<style scoped>
+.header{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .header  .header-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+.header  .header-right{
+    width: 200px;
+}
+.box {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+}
+.one {
+  display: flex;
+}
+.one span {
+  width: 100px;
+  text-align: left;
+  height: 40px;
+  line-height: 40px;
+}
+.el-input {
+  width: 330px;
+  background: content-box;
+}
+/* 新增图标 */
+.iconIMG{
+      width: 250px;
+      height: 150px;
+      border: 1px solid #eee;
+      position: relative;
+      top: -30px;
+      left: 80px;
+}
+/* 页面显示的图标 */
+.headJig{
+  cursor: pointer;
+}
+</style>

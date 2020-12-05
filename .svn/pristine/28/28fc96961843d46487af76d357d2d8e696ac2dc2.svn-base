@@ -1,0 +1,92 @@
+<template>
+  <div>
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <!-- <el-select v-model="filter.type" clearable>
+            <el-option v-for="(value, key) in piles" :key="key" :value="key" :label="value" />
+          </el-select> -->
+        </el-form-item>
+        <!-- <el-button type="primary" size="mini" icon="el-icon-search" @click="featchData" /> -->
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">提现排行榜</div>
+      <div class="top-right">
+        <!-- <el-button type="danger" size="small">批量删除</el-button> -->
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+    >
+      <el-table-column align="center" label="昵称">
+        <!-- <template slot-scope="scope">{{ scope.row.originalCost }}</template> -->
+      </el-table-column>
+      <el-table-column align="center" label="提现金额(元)">
+        <!-- <template slot-scope="scope">{{ scope.row.money }}</template> -->
+      </el-table-column>
+      <el-table-column align="center" label="头像">
+        <!-- <template slot-scope="scope">{{ scope.row.originalCost }}</template> -->
+      </el-table-column>
+      <el-table-column align="center" label="是否是会员">
+        <!-- <template slot-scope="scope">{{ scope.row.originalCost }}</template> -->
+      </el-table-column>
+      <el-table-column align="center" label="性别">
+        <!-- <template slot-scope="scope">{{ scope.row.originalCost }}</template> -->
+      </el-table-column>
+      <el-table-column align="center" label="余额">
+        <!-- <template slot-scope="scope">{{ scope.row.originalCost }}</template> -->
+      </el-table-column>
+
+    </el-table>
+  </div>
+</template>
+
+<script>
+import { orderByCash } from '@/api/list'
+export default {
+  data() {
+    return {
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        type: 1
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pagerSize: this.pager.pageSize,
+        type: this.pager.type
+      })
+      orderByCash(_form).then(res => {
+        // console.log(res)
+        this.tableData.array = res.rows
+        // this.pager.total = result.total
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

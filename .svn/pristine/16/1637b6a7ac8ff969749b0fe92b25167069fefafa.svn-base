@@ -1,0 +1,380 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">权益配置</div>
+      <div class="top-right">
+        <el-button type="success" size="small" :disabled="sels.length===0" @click="legalDirectory(sels)">权益划分等级</el-button>
+        <el-button type="danger" size="small" :disabled="sels.length===0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="标题">
+        <template slot-scope="scope">{{ scope.row.title }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="小图标">
+        <template slot-scope="scope"><el-image
+          style="width: 80px; height: 80px;cursor: pointer;"
+          :src="scope.row.icon"
+          @click="handlImg(scope.row)"
+        /></template>
+      </el-table-column>
+      <el-table-column align="center" label="小描述">
+        <template slot-scope="scope">{{ scope.row.msg }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="描述图">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px;cursor: pointer;"
+            :src="scope.row.msgImg"
+            @click="handlMsgImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="权益类型">
+        <template slot-scope="scope">{{ map.type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="大描述">
+        <template slot-scope="scope">{{ scope.row.msgInfo }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+      <el-table-column label="操作" align="center">
+        <template slot-scope="scope" class="button">
+          <el-button size="mini" @click="showDialog('edit', scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog :visible.sync="dialogVisible.legal" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}权益配置信息`" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="160px" :validate-on-rule-change="false" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="标题">
+              <el-input v-model="form.title" />
+            </el-form-item>
+            <el-form-item label="权益类型">
+              <el-select v-model="form.type" clearable placeholder="请选择权益类型">
+                <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="小图标">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.icon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="小描述">
+              <el-input v-model="form.msg" placeholder="请输入内容" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+            </el-form-item>
+            <el-form-item label="描述图">
+              <div class="icon-container" @click="fakeClick('msgImg')">
+                <i v-if="!form.msgImg" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.msgImg"
+                  style="width: 100%; height: 100%"
+
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="大描述">
+              <el-input v-model="form.msgInfo" placeholder="请输入内容" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" placeholder="请输入备注" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="icon" @change="val=>uploadFile(val,['form','icon'])">
+      <input type="file" style="visibility: hidden" class="msgImg" @change="val=>uploadFile(val,['form','msgImg'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.legal=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible.getRank" width="450px" title="权益划分给等级" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="140px" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="爵位">
+              <el-select v-model="form.rankId" clearable placeholder="请选择爵位">
+                <el-option v-for="item in rankType" :key="item.id" :value="item.id" :label="item.type" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.getRank = false">取 消</el-button>
+        <el-button size="small" type="primary" @click="getRankClick">确 定</el-button>
+      </span>
+    </el-dialog>
+    <el-dialog
+      title="小图标展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+    <el-dialog
+      title="描述图展示"
+      center
+      :visible.sync="dialogVisible.msgImgVisible"
+      width="30%"
+    >
+      <el-image :src="editMsgImg.msgImg" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { legalList, updateLegal, legalDeleteBatch, legalToRank, getRankList } from '@/api/theTitle'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { uploadQNImg } from '@/api/user'
+import Pagination from '@/components/Pagination'
+export default {
+  name: 'Legal',
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      form: {
+        icon: '',
+        msg: '',
+        msgImg: '',
+        msgInfo: '',
+        remark: '',
+        title: '',
+        rankId: '',
+        type: ''
+
+      },
+      dialogVisible: {
+        legal: false,
+        getRank: false,
+        imgVisible: false,
+        msgImgVisible: false
+      },
+      editImg: [], // 存储小图标
+      editMsgImg: [], // 存储描述图
+      // getRank: {},
+      idse: [], // 存储权益id
+      map: {
+
+        type: {
+          1: '爵位权益',
+          2: '守护权益'
+        }
+
+      },
+      rankType: []
+
+    }
+  },
+  created() {
+    this.fetchData()
+    this.getRankList()
+  },
+  methods: {
+    getRankList() {
+      getRankList().then(res => {
+        const { result } = res
+        if (Array.isArray(result)) {
+          this.rankType = result
+          result.forEach(item => {
+            if (item.type === 1) {
+              item.type = '子爵'
+            }
+          })
+        }
+      })
+    },
+    fetchData() {
+      const id = this.$route.query.id
+      this.tableData.loading = true
+      if (id) {
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo,
+          pageSize: this.pager.pageSize,
+          rankId: id
+        })
+        legalList(_form).then(res => {
+          const { result = {}} = res
+          // console.log(res)
+          this.tableData.array = result.records
+
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+      } else {
+        this.tableData.loading = true
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo,
+          pageSize: this.pager.pageSize
+
+        })
+        legalList(_form).then(res => {
+          const { result = {}} = res
+          // console.log(res)
+          this.tableData.array = result.records
+
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+      }
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.legal = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateLegal(_form, this.mode).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.legal = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.legal = false
+        this.tableData.loading = false
+      })
+    },
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+          this.$message.success(res.message)
+        })
+      }
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要删除选中的权益配置信息吗?', '提示')
+        .then(() => {
+          legalDeleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageSize = val.size
+      this.pager.pageNo = val.index
+      this.fetchData()
+    },
+    legalDirectory() {
+      this.dialogVisible.getRank = true
+      this.idse = this.sels.map((row) => row.id).join(',')
+    },
+    getRankClick() {
+      this.tableData.loading = true
+      const _Form = Object.assign({
+        ids: this.idse,
+        rankId: this.form.rankId
+      })
+      legalToRank(_Form).then(res => {
+        this.tableData.loading = false
+        this.dialogVisible.getRank = false
+        this.$message.success(res.message)
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.getRank = false
+        this.tableData.loading = false
+      })
+    },
+    handlImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    },
+    handlMsgImg(row) {
+      this.dialogVisible.msgImgVisible = true
+      this.editMsgImg = row
+    }
+
+  }
+}
+
+</script>
+<style scoped lang="scss">
+.icon-container{
+    width: 80px;
+    height: 80px;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    position: relative;
+      cursor: pointer;
+    i{
+        display: block;
+        position: absolute;
+        font-size: 24px;
+        top:50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+    }
+}
+</style>

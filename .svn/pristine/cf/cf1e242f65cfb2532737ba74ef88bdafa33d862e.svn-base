@@ -1,0 +1,137 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">抽奖记录</div>
+      <!-- <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length===0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+      </div> -->
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="用户">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="礼物名称">
+        <template slot-scope="scope">{{ scope.row.giftName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="礼物图标">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 100px; height: 100px; cursor: pointer;"
+            :src="scope.row.giftIcon"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="对应钻石数量">
+        <template slot-scope="scope">{{ scope.row.coinNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="类型">
+        <template slot-scope="scope">{{ type[scope.row.type] }}</template>
+      </el-table-column>
+
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <!-- 大头像 -->
+    <el-dialog
+      title="礼物图标展示"
+      center
+      :visible.sync="imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.giftIcon" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { DrawRecordlist, deleteBatch } from '@/api/activity'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      sels: [],
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      type: {
+        1: '转盘',
+        2: '砸金蛋'
+      },
+      imgVisible: false,
+      editImg: {}
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+
+      })
+      DrawRecordlist(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageSize = val.size
+      this.pager.pageNo = val.index
+      this.fetchData()
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要删除选中的抽奖记录信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+    changeImg(row) {
+      this.imgVisible = true
+      this.editImg = row
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

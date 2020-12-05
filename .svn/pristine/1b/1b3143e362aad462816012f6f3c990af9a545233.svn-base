@@ -1,0 +1,42 @@
+import request from '@/utils/request'
+
+export function phoneInfoList(params) {
+  return request({
+    url: '/chat/phoneInfo/list',
+    method: 'GET',
+    params
+  })
+}
+
+export function updatePhoneInfo(params, type) {
+  return request({
+    url: `/chat/phoneInfo/${type}`,
+    contentType: 'application/json',
+    method: 'POST',
+    params
+  })
+}
+// 手机号
+export function readFile(data) {
+  return request({
+    url: '/chat/phoneInfo/readFile',
+    method: 'POST',
+    data
+  })
+}
+
+export function deleteBatch(params) {
+  return request({
+    url: '/chat/phoneInfo/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}
+// 导入
+export function importExcel(data) {
+  return request({
+    url: '/chat/phoneInfo/importExcel',
+    method: ' POST',
+    data
+  })
+}

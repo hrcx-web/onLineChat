@@ -1,0 +1,17 @@
+import request from '@/utils/request'
+// 消费排行
+export function orderByList(params) {
+  return request({
+    url: '/chat/order.mgr/usersOrder/orderByList',
+    method: 'GET',
+    params
+  })
+}
+// 充值提现
+export function orderByCash(params) {
+  return request({
+    url: `/chat/order/orderByCash`,
+    method: 'GET',
+    params
+  })
+}

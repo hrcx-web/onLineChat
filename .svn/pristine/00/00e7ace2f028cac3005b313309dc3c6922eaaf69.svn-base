@@ -1,0 +1,10 @@
+import request from '@/utils/request'
+
+// 查询
+export function versionList(params) {
+  return request({
+    url: '/chat/version/list',
+    method: 'GET',
+    params
+  })
+}

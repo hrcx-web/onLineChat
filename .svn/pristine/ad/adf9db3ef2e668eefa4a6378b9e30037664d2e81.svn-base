@@ -1,0 +1,148 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">评论</div>
+      <div class="header-right">
+        <el-button size="small" type="danger" :disabled="this.sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" plain size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="用户id">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="被评论的动态">
+        <template slot-scope="scope">{{ scope.row.info }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="评论的类型">
+        <template slot-scope="scope">{{ scope.row.type }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="评论内容">
+        <template slot-scope="scope">{{ scope.row.content }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="155px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="20">
+            <el-col :span="10">
+              <el-button size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+  </div>
+</template>
+
+<script>
+import { commentList } from '@/api/comments'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        user: '', // 用户id
+        type: '', // 评论的类型
+        info: '', // 被评论的动态
+        content: ''// 内容
+      },
+      sels: []
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      }, this.filter)
+      commentList(_form)
+        .then(res => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    //    批量删除
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+
+    },
+    // 新增
+    showDialog() {
+
+    },
+    // 查看
+    handleClick() {
+
+    },
+    // 编辑
+    showDialog() {
+
+    },
+
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    }
+  }
+}
+
+</script>
+
+<style scoped>
+.header{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .header  .header-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+.header  .header-right{
+    width: 200px;
+}
+</style>

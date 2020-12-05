@@ -1,0 +1,746 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">公会列表管理</div>
+      <div class="top-right">
+        <el-button v-if="loginType=='admin'" type="success" size="small" :disabled="sels.length >1" @click="disciplinary(sels)">惩戒</el-button>
+        <el-button v-if="loginType=='admin'" type="primary" size="small" @click="showDialog('add')">新增</el-button>
+        <el-button v-if="loginType=='union'" type="primary" size="small" @click="showDialog('add')">新增公会</el-button>
+        <el-button v-if="loginType=='admin'" size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="公会名">
+        <template slot-scope="scope">
+          <p>{{ scope.row.id }}</p>
+          <p>{{ scope.row.tradeName }}</p>
+          <p>公会类型:{{ scope.row.tradeId==null?'一级公会':'二级公会' }}</p>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="公会人数">
+        <template slot-scope="scope">{{ scope.row.tradeNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="图片">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px;cursor: pointer;"
+            :src="scope.row.logo"
+            @click="changeImg(scope.row)"
+          /></template>
+      </el-table-column>
+      <el-table-column align="center" label="公会邀请码">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px;cursor: pointer;"
+            :src="scope.row.qrCode"
+            @click="changeQrCode(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column
+        v-model="tableData.data"
+        align="center"
+        label="推广链接"
+      >
+        <template slot-scope="scope">
+          <el-button type="text" @click="copy(tableData.data,scope.row)">复制</el-button>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="信息描述">
+        <template slot-scope="scope">{{ scope.row.tradeInfo }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="热门扶持系数">
+        <template slot-scope="scope">{{ scope.row.hotRatio }}</template>
+      </el-table-column>
+      <!-- <el-table-column align="center" label="余额">
+        <template slot-scope="scope">{{ scope.row.balance }}</template>
+      </el-table-column> -->
+      <el-table-column align="center" label="提现冻结">
+        <template slot-scope="scope">{{ scope.row.frozenCome }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="可提现金额">
+        <template slot-scope="scope">{{ scope.row.cashMoney }}</template>
+      </el-table-column>
+      <el-table-column v-if="loginType=='admin'" align="center" label="提成比例">
+        <template slot-scope="scope">{{ scope.row.profit }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+      <el-table-column label="操作" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="5">
+            <el-col :span="14">
+              <el-button size="mini" type="primary" @click="tradeCashClick(scope.row)">发起提现</el-button>
+            </el-col>
+            <el-col :span="10">
+              <el-button v-if="loginType=='admin'" size="mini" style="margin-left:10px" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+            <el-col :span="14">
+              <el-button v-if="loginType=='union'" style="margin-top:5px" size="mini" @click="alterClick(scope.row)">修改密码</el-button>
+            </el-col>
+            <el-col :span="14">
+              <el-button v-if="loginType=='union'" size="mini" @click="AddSecond(scope.row)">绑定公会管理员</el-button>
+            </el-col>
+            <el-col :span="14">
+              <el-button v-if="loginType=='admin'" style="margin-top:5px" size="mini" type="primary" @click="profitClick('edit',scope.row)">提成设置</el-button>
+            </el-col>
+            <el-col :span="14">
+              <el-button v-if="loginType=='admin'" :loading="tableData.loading" style="margin-top:5px" size="mini" type="primary" @click="hotRatioClick(scope.row)">操作热度</el-button>
+            </el-col>
+
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog :visible.sync="dialogVisible.trade" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}公会信息`" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="120px" :validate-on-rule-change="false" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="公会名">
+              <el-input v-model="form.tradeName" />
+            </el-form-item>
+            <el-form-item v-if="loginType=='admin'" label="公会人数">
+              <el-input v-model="form.tradeNum" type="number" min="0" />
+            </el-form-item>
+            <el-form-item label="图片">
+              <div class="icon-container" @click="fakeClick('logo')">
+                <i v-if="!form.logo" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.logo"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="信息描述">
+              <el-input v-model="form.tradeInfo" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" placeholder="请输入信息描述" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" placeholder="请输入备注" />
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="logo" @change="val => uploadFile(val, ['form','logo'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.trade=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+    <el-dialog :visible.sync="dialogVisible.profit" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}提成设置信息框`" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="120px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="提成比例">
+              <el-input v-model="form.profit" type="number" min="0" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.profit=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateProfit">提交</el-button>
+      </div>
+    </el-dialog>
+    <!-- 提现 -->
+    <el-dialog :visible.sync="dialogVisible.tradeCash" width="550px" title="提现信息框" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="120px" :model="forms" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="真实姓名">
+              <el-input v-model="forms.realName" />
+            </el-form-item>
+            <el-form-item label="银行名">
+              <el-input v-model="forms.bankName" />
+            </el-form-item>
+            <el-form-item label="银行卡号">
+              <el-input v-model="forms.account" />
+            </el-form-item>
+            <el-form-item label="确认银行卡号">
+              <el-input v-model="forms.confirmAccount" />
+            </el-form-item>
+            <el-form-item label="提现金额">
+              <el-input v-model="forms.money" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="预留手机号">
+              <el-input v-model="forms.phone" />
+            </el-form-item>
+            <el-form-item label="开户行所在地">
+              <el-input v-model="forms.bankAdr" placeholder="请输入内容" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+            </el-form-item>
+            <el-form-item label="开户行详细地址">
+              <el-input v-model="forms.bankAdrName" placeholder="请输入内容" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.tradeCash=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateTradeCash">提交</el-button>
+      </div>
+    </el-dialog>
+    <!-- 大图片 -->
+    <el-dialog
+      title="图片展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.logo" />
+    </el-dialog>
+
+    <!-- 大二维码 -->
+    <el-dialog
+      title="邀请码展示"
+      center
+      :visible.sync="dialogVisible.QrCodeVisible"
+      width="30%"
+    >
+      <el-image :src="editQrCode.qrCode" />
+    </el-dialog>
+    <!-- 惩戒 -->
+    <el-dialog :visible.sync="dialogVisible.disciplinary" width="460px" title="新增惩戒信息框" center>
+      <el-form ref="disciplinaryForm" :rules="rules" label-position="right" label-width="130px" :model="disciplinaryForm" size="mini">
+        <el-form-item label="公会id">
+          <el-input v-model="disciplinaryForm.account" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="操作金额">
+          <el-input v-model="disciplinaryForm.money" type="number" :step="0.1" min="0" />
+        </el-form-item>
+        <el-form-item label="操作类型" prop="type">
+          <el-select v-model="disciplinaryForm.type" placeholder="请选择">
+            <el-option v-for="(value, key) in map.disciplinaryType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="账号类型">
+          <el-select v-model="disciplinaryForm.userType" :disabled="true" placeholder="请选择">
+            <el-option v-for="(value, key) in map.userType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="操作说明" prop="reason">
+          <el-input v-model="disciplinaryForm.reason" placeholder="请输入内容" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="disciplinaryForm.remark" placeholder="请输入内容" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.disciplinary = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="tableData.loading" @click="disciplinaryClick('disciplinaryForm')">提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 二级管理员页面 -->
+    <el-dialog :visible.sync="dialogVisible.user" width="500px" title="新增二级公会系统管理员" center style="z-index: 9999">
+      <el-form label-position="right" label-width="120px" :model="formSecond" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="登录账号">
+              <el-input v-model="formSecond.userName" />
+            </el-form-item>
+            <el-form-item label="密码">
+              <el-input v-model="formSecond.password" type="password" />
+            </el-form-item>
+            <el-form-item label="手机号">
+              <el-input v-model="formSecond.phone" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.user=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="SecondSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 修改密码 -->
+    <el-dialog :visible.sync="dialogVisible.alter" width="500px" title="修改密码信息框" center style="z-index: 9999">
+      <el-form ref="formAlter" :model="formAlter" status-icon :rules="rules" label-position="right" label-width="120px" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="新密码" prop="newPassword">
+              <el-input v-model="formAlter.newPassword" placeholder="请设置新密码" type="password" />
+            </el-form-item>
+            <el-form-item label="确认密码" prop="newPassword2">
+              <el-input v-model="formAlter.newPassword2" placeholder="请确认新密码" type="password" />
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.alter=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="alterSubmit('formAlter')">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 操作系数 -->
+    <el-dialog :visible.sync="dialogVisible.hotRatio" width="500px" title="编辑热门扶持系数" center style="z-index: 9999">
+      <el-form label-position="right" label-width="120px" :model="formHotRatio" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="热门操作系数">
+              <el-input v-model="formHotRatio.hotRatio" type="number" :step="0.1" min="0" />
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.hotRatio=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="hotRatioSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+    <input type="text" class="copy" style="position:absolute;z-index:-1;opacity: 0;">
+  </div>
+
+</template>
+
+<script>
+import { tradeList, updateTrade, deleteBatch, tradeCash, updateAdmin, editPwd, hotRatio } from '@/api/union'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+import { uploadQNImg, warnLogAdd } from '@/api/user'
+import { JSEncrypt } from 'jsencrypt'
+import { PublicKey } from '@/api/user'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    const validateNewPassword2 = (rule, value, callback) => {
+      if (value !== this.formAlter.newPassword) {
+        callback(new Error('与新密码不一致!'))
+      } else {
+        callback()
+      }
+    }
+    return {
+      tableData: {
+        data: {}, // 推广链接
+        array: [],
+        row: {},
+        loading: false
+
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      dialogVisible: {
+        trade: false,
+        imgVisible: false,
+        profit: false,
+        tradeCash: false,
+        disciplinary: false,
+        user: false,
+        alter: false,
+        QrCodeVisible: false,
+        hotRatio: false
+      },
+      map: {
+        userType: {
+          1: '用户',
+          2: '公会'
+        },
+        disciplinaryType: {
+          1: '冻结收益',
+          2: '扣除收益',
+          3: '封号'
+        }
+      },
+      editImg: [], // 存储大图
+      editQrCode: [], // 存储二维码
+      mode: '',
+      form: {
+        logo: '',
+        remark: '',
+        tradeInfo: '',
+        tradeName: '',
+        tradeNum: '',
+        profit: ''
+      },
+      forms: {
+        account: '',
+        bankAdr: '',
+        bankAdrName: '',
+        bankName: '',
+        confirmAccount: '',
+        money: '',
+        phone: '',
+        realName: ''
+      },
+      // 新增二级公会管理员
+      formSecond: {
+        userName: '',
+        password: '',
+        phone: ''
+
+      },
+      formAlter: { // 修改密码
+        // password: '',
+        newPassword: '',
+        newPassword2: ''
+      },
+      tradeIdSecond: '', // 存储公会id
+      tradeIdAlter: '', // 存储修改密码id
+      // 惩戒
+      disciplinaryForm: {
+        remark: '',
+        reason: '',
+        userType: '',
+        type: '',
+        money: '',
+        account: ''
+
+      },
+      formHotRatio: {
+        hotRatio: ''
+      },
+      hotRatioId: {}, // 存储操作系数id
+      sels: [],
+      loginType: {},
+      tradeId: '',
+      rules: {
+        type: [
+          { required: true, message: '请选择操作类型', trigger: 'blur' }
+
+        ],
+        reason: [
+          { required: true, message: '请输入操作说明', trigger: 'blur' }
+
+        ],
+        newPassword: [
+          { required: true, message: '请设置新密码', trigger: 'blur' }
+        ],
+        newPassword2: [
+          { required: true, message: '请确认新密码', trigger: 'blur' },
+          { validator: validateNewPassword2, trigger: 'blur' }
+        ]
+
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+    this.aaa()
+  },
+  methods: {
+    // 推广链接
+    copy(url, row) {
+      const inputDom = document.querySelector('input.copy')
+      inputDom.value = url + row.id || ''
+      inputDom.select()
+      document.execCommand('Copy')
+      this.$message.success('复制成功')
+    },
+    aaa() {
+      this.loginType = localStorage.getItem('loginType')
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      })
+      tradeList(_form)
+        .then(res => {
+          this.tableData.data = res.data
+          const { result = {}} = res
+
+          this.tableData.array = result.records
+
+          this.pager.total = result.total
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.trade = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateTrade(_form, this.mode).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.trade = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.trade = false
+        this.tableData.loading = false
+      })
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的公会信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    // 新增的图片操作
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    // 新增图标
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          // 新增的
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    },
+
+    changeQrCode(row) {
+      this.dialogVisible.QrCodeVisible = true
+      this.editQrCode = row
+    },
+    profitClick(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.profit = true
+    },
+    // 提交提成设置
+    updateProfit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateTrade(_form, this.mode).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.profit = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.profit = false
+        this.tableData.loading = false
+      })
+    },
+    tradeCashClick(item) {
+      this.tradeId = item.id
+      this.forms = initForm(this.forms)
+      this.dialogVisible.tradeCash = true
+    },
+    updateTradeCash() {
+      this.tableData.loading = true
+      let _forms = Object.assign({ tradeId: this.tradeId }, this.forms)
+      _forms = clearEmptyItem(_forms)
+      tradeCash(_forms).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.tradeCash = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.tradeCash = false
+        this.tableData.loading = false
+      })
+    },
+
+    disciplinary() {
+      if (this.sels.length === 0) {
+        this.$message('请选择一个用户')
+      } else {
+        this.disciplinaryForm = initForm(this.disciplinaryForm)
+        const idses = this.sels.map((row) => row.id).join(',')
+        this.disciplinaryForm.account = idses
+        this.disciplinaryForm.userType = '2'
+        this.dialogVisible.disciplinary = true
+      }
+    },
+    disciplinaryClick(form) {
+      this.$refs[form].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          let _disciplinaryForm = Object.assign(this.disciplinaryForm)
+          _disciplinaryForm = clearEmptyItem(_disciplinaryForm)
+          warnLogAdd(_disciplinaryForm).then(res => {
+            // debugger
+
+            this.tableData.loading = false
+            this.$message.success(res.message)
+            this.dialogVisible.disciplinary = false
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+            this.dialogVisible.disciplinary = false
+            this.tableData.loading = false
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+
+    // 新增二级公会管理员
+    AddSecond(row) {
+      this.tradeIdSecond = row.id
+      this.formSecond = initForm(this.formSecond)
+      this.dialogVisible.user = true
+    },
+    async SecondSubmit() {
+      this.tableData.loading = true
+      const { publicKey } = await PublicKey({})
+      var crypt = new JSEncrypt()
+      crypt.setPublicKey(publicKey)
+      let _form = Object.assign({ tradeId: this.tradeIdSecond }, this.formSecond)
+      _form.password = crypt.encrypt(_form.password)
+      _form = clearEmptyItem(_form)
+      updateAdmin(_form).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.user = false
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 修改密码
+    alterClick(row) {
+      this.dialogVisible.alter = true
+      this.tradeIdAlter = row.id
+      this.formAlter = initForm(this.formAlter)
+    },
+    async alterSubmit(formName) {
+      const { publicKey } = await PublicKey({})
+      var crypt = new JSEncrypt()
+      crypt.setPublicKey(publicKey)
+      this.$refs[formName].validate(valid => {
+        if (valid) {
+          this.tableData.loading = true
+          let _form = Object.assign({ password: this.formAlter.newPassword, tradeId: this.tradeIdAlter })
+          _form.password = crypt.encrypt(_form.password)
+          _form = clearEmptyItem(_form)
+          editPwd(_form).then(() => {
+            this.$message.success('密码已修改')
+            this.dialogVisible.alter = false
+            this.fetchData()
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+        } else {
+          this.$message.error('请正确填写表单')
+          return false
+        }
+      })
+    },
+    // 操作热度
+    hotRatioClick(row) {
+      this.dialogVisible.hotRatio = true
+      this.hotRatioId = row.id
+      this.formHotRatio.hotRatio = row.hotRatio
+    },
+    hotRatioSubmit() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        id: this.hotRatioId,
+        hotRatio: this.formHotRatio.hotRatio
+      })
+      hotRatio(_form).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+        this.dialogVisible.hotRatio = false
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    }
+
+  }
+}
+
+</script>
+<style scoped  lang="scss">
+/* 新增图标 */
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+</style>

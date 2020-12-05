@@ -1,0 +1,13 @@
+// 评论
+import request from '@/utils/request'
+
+// 查询分页
+export function commentList(params) {
+  return request({
+    url: '/chat/comment/list',
+    method: 'GET',
+    params
+  })
+}
+// 批量删除
+

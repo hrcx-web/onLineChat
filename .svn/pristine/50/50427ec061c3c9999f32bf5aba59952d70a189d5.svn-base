@@ -1,0 +1,132 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">
+        社区相关
+      </div>
+      <div class="header-right">
+        <el-button type="danger" size="small" :disabled="this.sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" plain size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" />
+      <el-table-column align="center" label="用户id">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="内容">
+        <template slot-scope="scope">{{ scope.row.content }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="标题">
+        <template slot-scope="scope">{{ scope.row.title }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="是否点赞">
+        <template slot-scope="scope">{{ scope.row.likeNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="定位">
+        <template slot-scope="scope">{{ scope.row.position }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="类型">
+        <template slot-scope="scope">{{ scope.row.type }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="点赞数">
+        <template slot-scope="scope">{{ scope.row.likeNum }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="150px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="5">
+            <el-col :span="10">
+              <el-button style="width: 100%" size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+  </div>
+</template>
+
+<script>
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { communitylist } from '@/api/related'
+export default {
+
+  data() {
+    return {
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      dialogVisible: {
+        community: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [], // 批量
+      form: { // 新增
+        likeNum: '', // 点赞数
+        content: '', // 内容
+        isLike: '', // 是否点赞
+        label: '', // 标签
+        position: '', // 定位
+        title: '', // 标题
+        type: '', // 文字图片视频
+        updateTime: '', // 修改时间
+        user: ''// 用户id
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    //  社区查询
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      communitylist(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    //    批量
+    selsChange() {
+
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.community = true
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

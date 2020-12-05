@@ -1,0 +1,256 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">幸运盲盒</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="盲盒图标">
+        <template slot-scope="scope"> <el-image
+          style="width: 100px; height: 100px; cursor: pointer;"
+          :src="scope.row.icon"
+          @click="changeImg(scope.row)"
+        /></template>
+      </el-table-column>
+      <el-table-column align="center" label="盲盒说明">
+        <template slot-scope="scope">{{ scope.row.info }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="价格/次">
+        <template slot-scope="scope">{{ scope.row.price }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="160px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="5">
+            <el-col :span="10" size="mini">
+              <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+            <el-col :span="10" size="mini">
+              <el-button size="mini" type="primary" @click="lookClick(scope.row)">查看奖品</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog :visible.sync="dialogVisible.lucky" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}幸运盲盒信息`" center>
+      <el-form ref="form" label-position="right" :validate-on-rule-change="false" label-width="180px" :model="form" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="22">
+            <el-form-item label="盲盒图标">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.icon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="盲盒说明">
+              <el-input v-model="form.info" autosize type="textarea" placeholder="请输入说明" />
+            </el-form-item>
+            <el-form-item label="价格/次">
+              <el-input v-model="form.price" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" autosize type="textarea" placeholder="请输入备注" />
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="icon" @change="val => uploadFile(val, ['form','icon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.lucky=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 图标 -->
+    <el-dialog
+      title="盲盒图标展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+
+  </div>
+</template>
+
+<script>
+import { giftBoxList, updateGiftBox, deleteBatchLucky } from '@/api/taskManagement'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { uploadQNImg } from '@/api/user'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      tableData: {
+
+        loading: false,
+        array: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+
+      dialogVisible: {
+        lucky: false,
+        imgVisible: false
+
+      },
+      editImg: '',
+      form: {
+        ids: '',
+        info: '',
+        price: '',
+        remark: '',
+        icon: ''
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      })
+      giftBoxList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.lucky = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateGiftBox(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.lucky = false
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          // 新增的
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的幸运盲盒信息吗?', '提示')
+        .then(() => {
+          deleteBatchLucky({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    },
+    lookClick(row) {
+      this.$router.push({ path: '/activity/prize', query: { ids: row.ids }})
+    }
+
+  }
+}
+
+</script>
+<style scoped lang="scss">
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+</style>

@@ -1,0 +1,260 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">工会</div>
+      <div class="top-right">
+        <el-button size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="工会名">
+        <template slot-scope="scope">{{ scope.row.tradeName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="工会人数">
+        <template slot-scope="scope">{{ scope.row.tradeNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="图片">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px;cursor: pointer;"
+            :src="scope.row.logo"
+            @click="changeImg(scope.row)"
+          /></template>
+      </el-table-column>
+      <el-table-column align="center" label="信息描述">
+        <template slot-scope="scope">{{ scope.row.tradeInfo }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="热门扶持系数">
+        <template slot-scope="scope">{{ scope.row.hotRatio }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="150px" align="center">
+        <template slot-scope="scope">
+          <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog :visible.sync="dialogVisible.trade" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}工会信息`" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="120px" :validate-on-rule-change="false" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="工会名">
+              <el-input v-model="form.tradeName" />
+            </el-form-item>
+            <el-form-item label="工会人数">
+              <el-input v-model="form.tradeNum" />
+            </el-form-item>
+            <el-form-item label="图片">
+              <div class="icon-container" @click="fakeClick('logo')">
+                <i v-if="!form.logo" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.logo"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="信息描述">
+              <el-input v-model="form.tradeInfo" />
+            </el-form-item>
+            <el-form-item label="热门扶持系数">
+              <el-input v-model="form.hotRatio" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" />
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="logo" @change="val => uploadFile(val, ['form','logo'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.trade=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 大图片 -->
+    <el-dialog
+      title="图标展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.logo" />
+    </el-dialog>
+  </div>
+
+</template>
+
+<script>
+import { tradeList, updateTrade, deleteBatch } from '@/api/union'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+import { uploadQNImg } from '@/api/user'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      dialogVisible: {
+        trade: false,
+        imgVisible: false
+      },
+      editImg: [],
+      mode: '',
+      form: {
+        hotRatio: '',
+        logo: '',
+        remark: '',
+        tradeInfo: '',
+        tradeName: '',
+        tradeNum: ''
+      },
+      sels: []
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      })
+      tradeList(_form)
+        .then(res => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.tableData.total = result.total
+          // console.log(res)
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.trade = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateTrade(_form, this.mode).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.trade = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.trade = false
+      })
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的工会信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    // 新增的图片操作
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    // 新增图标
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          // 新增的
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    }
+  }
+}
+
+</script>
+<style scoped  lang="scss">
+/* 新增图标 */
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+</style>

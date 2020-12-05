@@ -1,0 +1,334 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.platformName" clearable placeholder="请输入平台名称" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchDataS" />
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.distributeType" clearable placeholder="请选择渠道类型">
+            <el-option v-for="(value, key) in map.distributeType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.sysUserId" clearable placeholder="请选择渠道商管理员">
+            <el-option v-for="(value, key) in map.admin" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">渠道商信息管理</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="multipleTable.length === 0" type="danger" @click="deleteBatch()">批量删除</el-button>
+        <el-button size="small" type="primary" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column
+        align="center"
+        type="selection"
+      />
+      <el-table-column
+        align="center"
+        prop="platformName"
+        label="平台名称"
+      />
+      <el-table-column
+        align="center"
+        prop="distributeType"
+        label="渠道类型"
+      >
+        <template slot-scope="scope">
+          <span>
+            {{ map.distributeType[scope.row.distributeType] }}
+          </span>
+          <span v-if="scope.row.distributeType == 2">(用户ID:{{ scope.row.userId }})</span>
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="sysUserId"
+        label="渠道商管理员"
+      >
+        <template slot-scope="scope">
+          {{ map.admin[scope.row.sysUserId] }}
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="price"
+        label="单价"
+      />
+      <el-table-column
+        align="center"
+        prop="settleType"
+        label="结算方式"
+      >
+        <template slot-scope="scope">
+          {{ map.settleType[scope.row.settleType] }}
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="threshold"
+        label="扣量阈值"
+      />
+      <el-table-column
+        align="center"
+        prop="resetValue"
+        label="扣量重置值"
+      />
+      <el-table-column
+        align="center"
+        prop="url"
+        label="推广链接"
+      >
+        <template slot-scope="scope">
+          <el-button v-if="scope.row.url" type="text" @click="copy(scope.row.url)">复制</el-button>
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="createTime"
+        label="创建时间"
+      />
+      <el-table-column
+        align="center"
+        prop="updateTime"
+        label="修改时间"
+      />
+      <el-table-column
+        align="center"
+        prop="operator"
+        label="操作人"
+      />
+      <el-table-column
+        align="center"
+        label="操作"
+      >
+        <template slot-scope="scope">
+          <el-button size="mini" @click="showDialog('edit', scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <!-- 动态模态框 -->
+    <el-dialog :visible.sync="dialogVisible.info" width="460px" :title="`${mode === 'add' ? '新增' : '编辑'}渠道商信息`" center>
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-form-item label="平台名称">
+          <el-input v-model="form.platformName" />
+        </el-form-item>
+        <!-- <el-form-item label="渠道类型">
+          <el-select v-model="form.distributeType" clearable>
+            <el-option v-for="(value, key) in map.distributeType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item> -->
+        <el-form-item label="渠道商管理员">
+          <el-select v-model="form.sysUserId" clearable>
+            <el-option v-for="(value, key) in map.admin" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="单价">
+          <el-input v-model="form.price" type="number" min="0" />
+        </el-form-item>
+        <el-form-item label="结算方式">
+          <el-select v-model="form.settleType" clearable>
+            <el-option v-for="(value, key) in map.settleType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <!-- <el-form-item label="扣量阈值">
+          <el-input v-model="form.threshold" type="number" min="0" />
+        </el-form-item>
+        <el-form-item label="扣量重置值">
+          <el-input v-model="form.resetValue" type="number" min="0" />
+        </el-form-item>
+        <el-form-item label="推广链接">
+          <el-input v-model="form.url" />
+        </el-form-item> -->
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.info = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="formLoading" @click="updateSubmit">提 交</el-button>
+      </div>
+    </el-dialog>
+    <input type="text" class="copy" style="position:absolute;z-index:-1;opacity: 0;">
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { updateDistributorInfo, queryDistributorInfo, deleteDistributorInfo, getDisAdminMapping } from '@/api/distributor'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      dialogVisible: {
+        info: false
+      },
+      multipleTable: [],
+      filter: {
+        platformName: '',
+        distributeType: '',
+        sysUserId: ''
+      },
+      map: {
+        distributeType: {
+          1: '平台外包',
+          2: '用户分销',
+          3: '自来客'
+        },
+        settleType: {
+          1: 'uv',
+          2: 'cpa',
+          3: 'cps'
+        },
+        status: {
+          1: '启用',
+          2: '停用',
+          3: '拉黑'
+        },
+        admin: {}
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      form: {
+        // platformName: '',
+        distributeType: '',
+        price: '',
+        // resetValue: '',
+        settleType: '',
+        sysUserId: ''
+        // threshold: '',
+        // url: ''
+      },
+      formLoading: false,
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      }
+    }
+  },
+  created() {
+    this.queryAdminMap()
+    this.fetchData()
+  },
+  methods: {
+    copy(url) {
+      const inputDom = document.querySelector('input.copy')
+      inputDom.value = url || ''
+      inputDom.select()
+      document.execCommand('Copy')
+      this.$message.success('复制成功')
+    },
+    selsChange(sels) {
+      this.multipleTable = sels
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.info = true
+    },
+
+    async updateSubmit() {
+      this.formLoading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateDistributorInfo(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.info = false
+        this.fetchData()
+      }).finally(_ => {
+        this.formLoading = false
+      })
+    },
+    fetchDataS() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: 1, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      queryDistributorInfo(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      queryDistributorInfo(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    queryAdminMap() {
+      getDisAdminMapping().then(res => {
+        this.map.admin = res.result || {}
+      })
+    },
+    deleteBatch() {
+      const ids = this.multipleTable.map((row) => row.id).join(',')
+      this.$confirm('确定要删除选中的渠道商信息吗?', '提示')
+        .then(() => {
+          deleteDistributorInfo({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+</style>

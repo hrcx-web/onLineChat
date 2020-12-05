@@ -1,0 +1,38 @@
+import request from '@/utils/request'
+// 公告配置添加
+export function afficheAdd(data) {
+  return request({
+    url: '/chat/notice/add',
+    method: 'POST',
+    data
+
+  })
+}
+// 查询
+export function noticeList(params) {
+  return request({
+    url: '/chat/notice/list',
+    method: 'GET',
+    params
+
+  })
+}
+// 编辑
+export function noticeEdit(data) {
+  return request({
+    url: '/chat/notice/edit',
+    method: 'PUT',
+    data
+
+  })
+}
+// 批量删除
+export function deleteBatch(params) {
+  return request({
+    url: '/chat/notice/deleteBatch',
+    method: 'DELETE',
+    params
+
+  })
+}
+

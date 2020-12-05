@@ -1,0 +1,117 @@
+import request from '@/utils/request'
+
+export function rankList(params) {
+  return request({
+    url: '/chat/rank/list',
+    method: 'GET',
+    params
+  })
+}
+
+export function updateRank(data, type) {
+  return request({
+    url: `/chat/rank/${type}`,
+    contentType: 'x-www-form-urlencoded',
+    method: type === 'edit' ? 'POST' : 'POST',
+    data
+  })
+}
+
+export function deleteBatch(params) {
+  return request({
+    url: '/chat/rank/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}
+
+// 成长配置查询
+export function growConfig(params) {
+  return request({
+    url: '/chat/rank/growConfig/list',
+    method: 'GET',
+    params
+  })
+}
+export function deleteBatchs(params) {
+  return request({
+    url: '/chat/rank/growConfig/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}
+export function updategRowConfig(data, type) {
+  return request({
+    url: `/chat/rank/growConfig/${type}`,
+    contentType: 'x-www-form-urlencoded',
+    method: type === 'edit' ? 'POST' : 'POST',
+    data
+  })
+}
+
+// 权益配置
+export function legalList(params) {
+  return request({
+    url: '/chat/rank/legal/list',
+    method: 'GET',
+    params
+  })
+}
+
+export function updateLegal(data, type) {
+  return request({
+    url: `/chat/rank/legal/${type}`,
+    contentType: 'x-www-form-urlencoded',
+    method: type === 'edit' ? 'POST' : 'POST',
+    data
+  })
+}
+export function legalDeleteBatch(params) {
+  return request({
+    url: '/chat/rank/legal/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}
+
+export function legalToRank(params) {
+  return request({
+    url: '/chat/rank/legal/legalToRank',
+    method: 'POST',
+    contentType: 'x-www-form-urlencoded',
+    params
+  })
+}
+export function getRankList(data) {
+  return request({
+    url: '/chat/rank/growConfig/getRankList',
+    method: 'POST',
+    contentType: 'application/json',
+    data
+  })
+}
+
+// 装扮商城
+
+export function dressMallList(params) {
+  return request({
+    url: '/chat/gift/dressMall/list',
+    method: 'GET',
+    params
+  })
+}
+export function updatedRessMall(data, type) {
+  return request({
+    url: `/chat/gift/dressMall/${type}`,
+    contentType: 'x-www-form-urlencoded',
+    method: type === 'edit' ? 'POST' : 'POST',
+    data
+  })
+}
+export function dressMallDeleteBatch(params) {
+  return request({
+    url: '/chat/gift/dressMall/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}

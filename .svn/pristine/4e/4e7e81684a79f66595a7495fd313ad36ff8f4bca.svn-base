@@ -1,0 +1,362 @@
+<template>
+  <div class="app-container">
+    <!-- <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.id" placeholder="请输入id" style="width:200px" />
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="changeId" />
+      </el-form>
+    </div> -->
+    <div class="top">
+      <div class="top-left">
+        点赞
+      </div>
+      <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" />
+      <el-table-column align="center" label="点赞用户">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="头像">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 100px; height: 100px"
+            class="headJig"
+            :src="scope.row.userIcon"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="性别">
+        <template slot-scope="scope">{{ plies[scope.row.userGender] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="点赞时间">
+        <template slot-scope="scope">{{ scope.row.time }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="160px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="5">
+            <el-col :span="10">
+              <el-button style="width: 100%" size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog
+      :visible.sync="dialogVisible.givelike"
+      width="550px"
+      :title="`${mode==='add' ? '新增':'编辑'}点赞信息`"
+      center
+      style="z-index:999"
+      size="mini"
+    >
+      <el-row :gutter="10">
+        <el-col :span="20">
+          <el-form label-position="right" label-width="150px" :model="form" size="mini">
+            <el-form-item label="性别">
+              <!-- <el-input v-model="form.type" /> -->
+              <el-select v-model="form.userGender" placeholder="请选择">
+                <el-option
+                  v-for="(value,key) in plies"
+                  :key="key"
+                  :label="value"
+                  :value="key"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="头像">
+              <div class="icon-container" @click="fakeClick('userIcon')">
+                <i v-if="!form.userIcon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.userIcon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+
+          </el-form>
+        </el-col>
+
+      </el-row>
+      <input type="file" style="visibility:hidden" class="userIcon" @change="val=>uploadFile(val,['form','userIcon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.givelike=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 查看大头像 -->
+    <el-dialog title="头像展示" center :visible.sync="imgVisible" width="30%">
+      <el-image :src="edImage.userIcon" />
+    </el-dialog>
+    <!-- 查看详情 -->
+    <el-dialog
+      title="点赞信息"
+      center
+      :visible.sync="checkVisible"
+      width="550px"
+    >
+      <div class="box">
+        <div class="one">
+          <span>点赞用户:</span>
+          <el-input v-model="handleRow.user" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>头像:</span>
+          <el-input v-model="handleRow.userIcon" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>性别:</span>
+          <el-input v-model="plies[handleRow.userGender]" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>点赞时间:</span>
+          <el-input v-model="handleRow.time" :disabled="true" size="mini" />
+        </div>
+
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { likeList, deleteBatch, updategivelike } from '@/api/giveLike'
+import Pagination from '@/components/Pagination'
+import { uploadQNImg } from '@/api/user'
+
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      filter: {
+        id: ''
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      dialogVisible: {
+        givelike: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [], // 批量
+      form: { // 新增
+        id: '',
+        user: '', // 用户
+        userIcon: '',
+        userGender: '',
+        time: ''
+      },
+      plies: {
+
+        1: '男',
+        2: '女'
+
+      },
+      checkVisible: false,
+      handleRow: [],
+      edImage: [], // 存大头像
+      imgVisible: false
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    //  点赞查询
+    fetchData() {
+      const ids = this.$route.query.id
+      this.tableData.loading = true
+      if (ids) {
+        const _form = {
+          pageNo: this.pager.pageNo, // 页数
+          pageSize: this.pager.pageSize, // 条数
+          info: ids
+        }
+        likeList(_form)
+          .then((res) => {
+            const { result = {}} = res
+            this.tableData.array = result.records
+            this.pager.total = result.total // 总数
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      } else {
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo, // 页数
+          pageSize: this.pager.pageSize, // 条数
+          id: this.form.id
+        }, this.filter)
+        likeList(_form)
+          .then((res) => {
+            const { result = {}} = res
+            this.tableData.array = result.records
+            this.pager.total = result.total // 总数
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      }
+    },
+    changeImg(row) { // 头像
+      this.edImage = row
+      this.imgVisible = true
+    },
+    //    批量
+    selsChange(sels) {
+      this.sels = sels
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.givelike = true
+    },
+    handleClick(row) {
+      this.handleRow = row
+      this.checkVisible = true
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((list) => list.id).join()
+      this.$confirm('确定要删除选中的点赞信息吗?', '提示').then(() => {
+        deleteBatch({
+          ids: ids
+        }).then(data => {
+          this.$message.success(data.message)
+          this.fetchData()
+        })
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updategivelike(_form, this.mode).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.givelike = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.givelike = false
+      })
+    },
+    fakeClick(className) {
+      const filesInput = document.querySelector(`input[type=file].${className}`)
+      filesInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    }
+
+  }
+}
+
+</script>
+<style scoped lang="scss">
+.top{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .top  .top-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+.top  .top-right{
+    width: 200px;
+}
+
+/* c查看闲情 */
+.one {
+  display: flex;
+
+}
+.one span {
+  width: 200px;
+  text-align: right;
+  margin-right: 20px;
+  height: 40px;
+  line-height: 40px;
+}
+.el-input {
+  background: content-box;
+}
+  .headJig{
+    cursor: pointer;
+  }
+  /* 新增图标 */
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 5px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+   i{
+     display: block;
+     font-size:24px;
+     position: absolute;
+     top:50%;
+     left: 50%;
+     transform: translate(-50%,-50%);
+   }
+}
+</style>

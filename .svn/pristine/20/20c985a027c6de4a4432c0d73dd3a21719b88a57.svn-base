@@ -1,0 +1,533 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-date-picker
+            v-model="filter.time"
+            type="month"
+            clearable
+            placeholder="选择月"
+            value-format="yyyy-MM"
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.tradeType" placeholder="请选择公会类型" clearable>
+            <el-option v-for="(value, key) in map.tradeType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchDataC" />
+      </el-form>
+
+    </div>
+    <div class="top">
+      <div class="top-left">月报列表</div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @sort-change="sortChange"
+    >
+      <el-table-column align="center" prop="time" label="日期" />
+      <el-table-column align="center" prop="tradeName" label="公会名" />
+      <el-table-column align="center" prop="tradeCash" sortable="custom" label="公会提现金额" />
+      <el-table-column align="center" prop="tradeProfit" sortable="custom" label="公会提成" />
+      <el-table-column align="center" prop="userGiftProfit" sortable="custom" label="主播礼物收益" />
+      <el-table-column align="center" prop="userOrderProfit" sortable="custom" label="主播接单收益" />
+      <el-table-column align="center" prop="orderNum" sortable="custom" label="接单数" />
+      <el-table-column align="center" prop="successNum" sortable="custom" label="接通数" />
+
+      <el-table-column align="center" label="接通率">
+        <template slot-scope="scope">{{ scope.row.NumTotal }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="操作">
+        <template slot-scope="scope">
+          <el-row :gutter="5">
+            <el-col :span="14">
+              <el-button size="mini" style="margin-left:10px" @click="showDialog(scope.row)">查看详情</el-button>
+            </el-col>
+            <el-col :span="20" style="margin-top:10px">
+              <el-button size="mini" style="width:100%" @click="ToViewClick(scope.row)">查看二级公会</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog
+      title="公会月报详情信息"
+      center
+      :visible.sync="dialogVisible.daily"
+      width="1100px"
+    >
+      <el-table
+        v-loading="tableData.loading"
+        :data="tableData.arrayx"
+        border
+        fit
+        highlight-current-row
+        @sort-change="sortChangex"
+      >
+        <el-table-column align="center" prop="time" label="日期" />
+        <el-table-column align="center" sortable="custom" prop="tradeProfit" label="公会提成" />
+
+        <el-table-column align="center" prop="userName" label="主播名" />
+        <el-table-column align="center" sortable="custom" prop="userGiftProfit" label="主播礼物收益" />
+        <el-table-column align="center" sortable="custom" prop="userOrderProfit" label="主播接单收益" />
+        <el-table-column align="center" sortable="custom" prop="orderNum" label="接单数" />
+        <el-table-column align="center" sortable="custom" prop="successNum" label="接通数" />
+
+        <el-table-column align="center" label="接通率">
+          <template slot-scope="scope">{{ scope.row.NumTotal }}</template>
+        </el-table-column>
+      </el-table>
+      <pagination
+        :pager-index="pager.pageNox"
+        :pager-size="pager.pageSizex"
+        :pager-total="pager.totalx"
+        @pagination-change="handlePagerChangex"
+      />
+
+    </el-dialog>
+
+    <el-dialog
+      title="二级公会列表"
+      center
+      :visible.sync="dialogVisible.ToView"
+      width="1400px"
+    >
+      <el-table
+        v-loading="tableData.loading"
+        :data="tableData.array2"
+        border
+        fit
+        highlight-current-row
+        @sort-change="sortChange2"
+      >
+        <el-table-column align="center" prop="time" label="日期" />
+        <el-table-column align="center" prop="tradeName" label="公会名" />
+        <el-table-column align="center" prop="tradeCash" sortable="custom" label="公会提现金额" />
+        <el-table-column align="center" prop="tradeProfit" sortable="custom" label="公会提成" />
+        <el-table-column align="center" prop="userGiftProfit" sortable="custom" label="主播礼物收益" />
+        <el-table-column align="center" prop="userOrderProfit" sortable="custom" label="主播接单收益" />
+        <el-table-column align="center" prop="orderNum" sortable="custom" label="接单数" />
+        <el-table-column align="center" prop="successNum" sortable="custom" label="接通数" />
+        <el-table-column align="center" label="接通率">
+          <template slot-scope="scope">{{ scope.row.NumTotal }}</template>
+        </el-table-column>
+        <el-table-column align="center" label="操作">
+          <template slot-scope="scope">
+            <el-row :gutter="5">
+              <el-col :span="14">
+                <el-button size="mini" style="100%" @click="secondaryClick(scope.row)">查看详情</el-button>
+              </el-col>
+            </el-row>
+          </template>
+        </el-table-column>
+      </el-table>
+      <pagination
+        :pager-index="pager.pageNo2"
+        :pager-size="pager.pageSize2"
+        :pager-total="pager.total2"
+        @pagination-change="handlePagerChange2"
+      />
+    </el-dialog>
+
+    <el-dialog
+      title="二级公会月报详情信息"
+      center
+      :visible.sync="dialogVisible.secondary"
+      width="1100px"
+    >
+      <el-table
+        v-loading="tableData.loading"
+        :data="tableData.arrayTwo"
+        border
+        fit
+        highlight-current-row
+        @sort-change="sortChangeTwo"
+      >
+        <el-table-column align="center" prop="time" label="日期" />
+        <el-table-column align="center" sortable="custom" prop="tradeProfit" label="公会提成" />
+
+        <el-table-column align="center" prop="userName" label="主播名" />
+        <el-table-column align="center" sortable="custom" prop="userGiftProfit" label="主播礼物收益" />
+        <el-table-column align="center" sortable="custom" prop="userOrderProfit" label="主播接单收益" />
+        <el-table-column align="center" sortable="custom" prop="orderNum" label="接单数" />
+        <el-table-column align="center" sortable="custom" prop="successNum" label="接通数" />
+
+        <el-table-column align="center" label="接通率">
+          <template slot-scope="scope">{{ scope.row.NumTotal }}</template>
+        </el-table-column>
+      </el-table>
+      <pagination
+        :pager-index="pager.pageNoTwo"
+        :pager-size="pager.pageSizeTwo"
+        :pager-total="pager.totalTwo"
+        @pagination-change="handlePagerChangeTwo"
+      />
+
+    </el-dialog>
+
+  </div>
+</template>
+
+<script>
+import { tradeLog, tradeLogDetail } from '@/api/union'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        loading: false,
+        array: [],
+        row: {},
+        arrayx: [],
+        array2: [],
+        arrayTwo: []
+
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        pageNoC: 1, // 查询
+        pageSizeC: 10,
+        total: 0,
+        type: 2,
+
+        totalx: 0, // 查看详情
+        pageNox: 1,
+        pageSizex: 10,
+        tradeType: 2,
+        total2: 0, // 二级
+        pageNo2: 1,
+        pageSize2: 10,
+        // 二级详情
+        totalTwo: 0,
+        pageNoTwo: 1,
+        pageSizeTwo: 10
+
+      },
+      filter: {
+        time: '',
+        tradeType: ''
+      },
+      dialogVisible: {
+        daily: false,
+        ToView: false,
+        secondary: false
+      },
+      combined: { // 传查看详情
+        tradeId: '',
+        time: ''
+      },
+      ToView: { // 二级公会
+        tradeId: ''
+
+      },
+      secondary: { // 二级详情
+        tradeId: '',
+        time: ''
+      },
+      map: {
+
+        tradeType: {
+          1: '一级公会',
+          2: '二级公会'
+
+        }
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+    this.getNowTime()
+  },
+  methods: {
+    getNowTime() {
+      var date = new Date()
+      var yyyy = date.getFullYear()
+      var MM = date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1
+      // var dd = date.getDate() < 10 ? '0' + date.getDate() : date.getDate()
+      const time1 = yyyy + '-' + MM
+
+      this.filter.time = time1
+    },
+    fetchDataC() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNoC,
+        pageSize: this.pager.pageSizeC,
+        type: this.pager.type
+      }, this.filter)
+      tradeLog(_form).then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            if (item.successNum && item.orderNum) {
+              item.NumTotal = Math.round(parseFloat(item.successNum / item.orderNum) * 100) * 100 / 100 + '%' || ''
+            }
+          })
+        }
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type
+      }, this.filter)
+      tradeLog(_form).then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            if (item.successNum && item.orderNum) {
+              item.NumTotal = Math.round(parseFloat(item.successNum / item.orderNum) * 100) * 100 / 100 + '%' || ''
+            }
+          })
+        }
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    sortChange(column, prop) {
+      this.tableData.loading = true
+      var sortingType = column.order
+      if (sortingType === 'descending') {
+        sortingType = '2'
+      }
+      if (sortingType === 'ascending') {
+        sortingType = '1'
+      }
+      const _form = Object.assign({
+        pageNo: 1,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type,
+        sort: sortingType,
+        sortName: column.prop
+      }, this.filter)
+      tradeLog(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    // 点击查看详情
+    showDialog(item) {
+      this.dialogVisible.daily = true
+      this.combined.tradeId = item.tradeId
+      this.combined.time = item.time
+      this.fetchDatax()
+    },
+
+    // 公会月报详情
+    fetchDatax() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        tradeId: this.combined.tradeId,
+        time: this.combined.time,
+        pageNo: this.pager.pageNox,
+        pageSize: this.pager.pageSizex,
+        type: this.pager.type
+      }, this.filter)
+      tradeLogDetail(_form).then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            if (item.successNum && item.orderNum) {
+              item.NumTotal = Math.round(parseFloat(item.successNum / item.orderNum) * 100) * 100 / 100 + '%' || ''
+            }
+          })
+        }
+        this.tableData.arrayx = result.records
+        this.pager.totalx = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChangex(val) {
+      this.pager.pageNox = val.index
+      this.pager.pageSizex = val.size
+      this.fetchDatax()
+    },
+    sortChangex(column, prop) {
+      this.tableData.loading = true
+      var sortingType = column.order
+      if (sortingType === 'descending') {
+        sortingType = '2'
+      }
+      if (sortingType === 'ascending') {
+        sortingType = '1'
+      }
+      const _form = Object.assign({
+        pageNo: 1,
+        pageSize: this.pager.pageSizex,
+        type: this.pager.type,
+        sort: sortingType,
+        sortName: column.prop
+      }, this.filter)
+      tradeLogDetail(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.arrayx = result.records
+        this.pager.totalx = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+
+    ToViewClick(row) { // 查看二级公会
+      this.dialogVisible.ToView = true
+      this.ToView.tradeId = row.tradeId
+      this.fetchData2()
+    },
+    fetchData2() {
+      this.tableData.loading = true
+      // const tradeId = this.$route.query.tradeId
+      const _form = Object.assign({
+        tradeId: this.ToView.tradeId,
+        tradeType: this.pager.tradeType,
+        pageNo: this.pager.pageNo2,
+        pageSize: this.pager.pageSize2,
+        type: this.pager.type
+      })
+      tradeLog(_form).then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            if (item.successNum && item.orderNum) {
+              item.NumTotal = Math.round(parseFloat(item.successNum / item.orderNum) * 100) * 100 / 100 + '%' || ''
+            }
+          })
+        }
+        this.tableData.array2 = result.records
+        this.pager.total2 = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    sortChange2(column, prop) {
+      this.tableData.loading = true
+      var sortingType = column.order
+      if (sortingType === 'descending') {
+        sortingType = '2'
+      }
+      if (sortingType === 'ascending') {
+        sortingType = '1'
+      }
+      const _form = Object.assign({
+        pageNo: 1,
+        pageSize: this.pager.pageSize2,
+        tradeType: this.pager.tradeType,
+        type: this.pager.type,
+        sort: sortingType,
+        sortName: column.prop
+      })
+      tradeLog(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array2 = result.records
+        this.pager.total2 = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange2(val) {
+      this.pager.pageNo2 = val.index
+      this.pager.pageSize2 = val.size
+      this.fetchData2()
+    },
+    // 二级详情
+    secondaryClick(item) {
+      this.dialogVisible.secondary = true
+      this.secondary.tradeId = item.tradeId
+      this.secondary.time = item.time
+      this.fetchDataTwo()
+    },
+    fetchDataTwo() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        tradeId: this.secondary.tradeId,
+        tradeType: this.pager.tradeType,
+        time: this.secondary.time,
+        pageNo: this.pager.pageNoTwo,
+        pageSize: this.pager.pageSizeTwo,
+        type: this.pager.type
+      })
+      tradeLogDetail(_form).then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            if (item.successNum && item.orderNum) {
+              item.NumTotal = Math.round(parseFloat(item.successNum / item.orderNum) * 100) * 100 / 100 + '%' || ''
+            }
+          })
+        }
+        this.tableData.arrayTwo = result.records
+        this.pager.totalTwo = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChangeTwo(val) {
+      this.pager.pageNoTwo = val.index
+      this.pager.pageSizeTwo = val.size
+      this.fetchDataTwo()
+    },
+    sortChangeTwo(column, prop) {
+      this.tableData.loading = true
+      var sortingType = column.order
+      if (sortingType === 'descending') {
+        sortingType = '2'
+      }
+      if (sortingType === 'ascending') {
+        sortingType = '1'
+      }
+      const _form = Object.assign({
+        pageNo: 1,
+        pageSize: this.pager.pageSizeTwo,
+        tradeType: this.pager.tradeType,
+        type: this.pager.type,
+        sort: sortingType,
+        sortName: column.prop
+      })
+      tradeLogDetail(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.arrayTwo = result.records
+        this.pager.totalTwo = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    }
+
+  }
+}
+
+</script>
+<style scoped>
+</style>

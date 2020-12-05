@@ -1,0 +1,280 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item />
+      <!-- <el-button type="primary" size="mini" icon="el-icon-search" @click="featchData" /> -->
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">常用语配置</div>
+      <div class="top-right">
+        <el-button type="success" size="small" @click="technique">批量导入话术</el-button>
+        <el-button type="primary" size="small" @click="showDialog">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+    >
+
+      <el-table-column align="center" label="用户id">
+        <template slot-scope="scope">{{ scope.row.id }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="常用语">
+        <template slot-scope="scope">{{ scope.row.word }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="适用性别">
+        <template slot-scope="scope">{{ gender[scope.row.gender] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="创建时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+
+      <el-table-column label="操作" width="150px" align="center">
+        <template slot-scope="scope">
+          <!-- <el-row :gutter="20">
+            <el-col :span="10"> -->
+          <el-button
+            size="mini"
+            type="danger"
+            @click="handleDelete(scope.$index, scope.row)"
+          >删除</el-button>
+          <!-- </el-col> -->
+          <!-- <el-col :span="10" size="mini" tyle="margin-top: 5px"> -->
+          <!-- <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button> -->
+          <!-- </el-col>
+          </el-row> -->
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog :visible.sync="dialogVisible.userWords" width="500px" title="新增常用语信息" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" :rules="rules" label-width="100px" :validate-on-rule-change="false" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="24">
+            <el-form-item label="常用语" prop="word">
+              <el-input
+                v-model="form.word"
+                type="textarea"
+                autosize
+                placeholder="请输入内容"
+              />
+            </el-form-item>
+            <el-form-item label="适用性别">
+              <el-select v-model="form.gender" placeholder="请选择">
+                <el-option
+                  v-for="(value,key) in gender"
+                  :key="key"
+                  :label="value"
+                  :value="key"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.userWords=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit('form')">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible.technique" width="500px" title="批量导入常用语信息框" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" :rules="rules" label-width="100px" :validate-on-rule-change="false" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="24">
+            <el-form-item label="适用性别">
+              <el-select v-model="forms.gender" placeholder="请选择">
+                <el-option
+                  v-for="(value,key) in gender"
+                  :key="key"
+                  :label="value"
+                  :value="key"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="话术">
+              <div class="icon-container" @click="fakeClick('word')">
+                <i v-if="!forms.word" class="el-icon-plus" />
+                <el-inputs
+                  v-else
+                  v-model="forms.word"
+                  type="textarea"
+                  autosize
+                />
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="word" @change="val => uploadFile(val, ['forms','word'])">
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { webList, addRobotWord, delet, moreAdd } from '@/api/phrase'
+import { initForm, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+
+  },
+  data() {
+    return {
+      tableData: {
+        array: [],
+        loading: false,
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        word: '',
+        gender: ''
+      },
+      forms: {
+        gender: '2',
+        word: ''
+      },
+      dialogVisible: {
+        userWords: false,
+        technique: false
+      },
+      gender: {
+        1: '男',
+        2: '女'
+      },
+      rules: {
+        word: [
+          { required: true, message: '请输入常用语', trigger: 'blur' }
+
+        ] }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      })
+      webList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    showDialog(item) {
+      this.dialogVisible.userWords = true
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+    },
+    // 删除
+    handleDelete(index, row) {
+      delet({
+        word: row.word
+      }).then(data => {
+        this.$message.success(data.message)
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    // 提交
+    updateSubmit(form) {
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      this.$refs[form].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          addRobotWord(_form).then(res => {
+            this.$message.success(res.message)
+            this.tableData.loading = false
+            this.dialogVisible.userWords = false
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+            this.dialogVisible.userWords = false
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    technique() {
+      this.dialogVisible.technique = true
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('file', files[0])
+        formData.append('gender', this.forms.gender)
+        moreAdd(formData).then((res) => {
+          // 新增的
+          this[target[0]][target[1]] = res.data
+          this.$message.success(res.message)
+          this.dialogVisible.technique = false
+        })
+      }
+    },
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    }
+
+  }
+}
+
+</script>
+<style scoped lang="scss">
+/* 新增图标 */
+.icon-container{
+  width: 170px;
+  height: 30px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 999;
+  }
+}
+</style>

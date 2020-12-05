@@ -1,0 +1,703 @@
+<template>
+  <div class="app-container">
+
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.phone" placeholder="请输入手机号" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="filter.user" placeholder="请输入用户名" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.gender" clearable>
+            <el-option v-for="(value, key) in map.gender" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">用户管理</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button size="small" type="primary" @click="showDialog('save')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="姓名">
+        <template slot-scope="scope">{{ scope.row.name }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="用户名">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column property="icon" align="center" label="头像">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 60px; height: 60px"
+            class="headJig"
+            :src="scope.row.icon"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" label="手机号">
+        <template slot-scope="scope">{{ scope.row.phone }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="性别">
+        <template slot-scope="scope">{{ map.gender[scope.row.gender] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="年龄">
+        <template slot-scope="scope">{{ scope.row.age }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="注册时间">
+        <template slot-scope="scope">{{ (scope.row.time) }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="身份证号码">
+        <template slot-scope="scope">{{ scope.row.identity }}</template>
+      </el-table-column>
+
+      <el-table-column label="操作" width="180" align="center">
+        <template slot-scope="scope" class="button">
+          <el-row :gutter="5">
+            <el-col :span="10">
+              <el-button style="width: 100%" size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="14">
+              <el-button style="width: 100%" size="mini" type="primary" @click="addIphone(scope.row)">添加相册集</el-button>
+            </el-col>
+            <el-col :span="10" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+            <el-col :span="14" style="margin-top: 5px">
+              <el-button size="mini" style="width:100%" type="primary" @click="showCommunity(scope.row)">发布动态</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <!-- 查看用户信息 -->
+    <el-dialog :visible.sync="handVisible" title="个人信息" center width="680px">
+      <div class="box">
+        <div class="one">
+          <span>年龄:</span>
+          <el-input v-model="handleRow.age" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>是否已婚:</span>
+          <el-input v-model="handleRow.beMarried" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>生日:</span>
+          <el-input v-model="handleRow.birthday" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>职业:</span>
+          <el-input v-model="handleRow.career" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>撩币:</span>
+          <el-input v-model="handleRow.coin" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>C币余额:</span>
+          <el-input v-model="handleRow.coinNum" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>星座:</span>
+          <el-input v-model="handleRow.constellation" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>好评度:</span>
+          <el-input v-model="handleRow.degree" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>性别:</span>
+          <el-input v-model="handleRow.gender" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>地理位置:</span>
+          <el-input v-model="handleRow.geography" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>等级:</span>
+          <el-input v-model="handleRow.grade" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>家乡:</span>
+          <el-input v-model="handleRow.hometown" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>头像:</span>
+          <el-input v-model="handleRow.icon" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>ID:</span>
+          <el-input v-model="handleRow.id" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>身份证图片:</span>
+          <el-input v-model="handleRow.idUrl" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>身份证号:</span>
+          <el-input v-model="handleRow.identity" :disabled="true" size="mini" />
+        </div>
+
+        <div class="one">
+          <span>IM号:</span>
+          <el-input v-model="handleRow.imNumber" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>认证状态:</span>
+          <el-input v-model="handleRow.isAppAuto" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>是否可聊天:</span>
+          <el-input v-model="handleRow.isChat" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>身份审核状态:</span>
+          <el-input v-model="handleRow.isIdentAuto" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>当前状态:</span>
+          <el-input v-model="handleRow.isLine" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>是否可私信:</span>
+          <el-input v-model="handleRow.isPriChat" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>是否是会员:</span>
+          <el-input v-model="handleRow.isVip" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>是否可语音:</span>
+          <el-input v-model="handleRow.isVoice" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>标签:</span>
+          <el-input v-model="handleRow.labels" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>姓名:</span>
+          <el-input v-model="handleRow.name" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>权限:</span>
+          <el-input v-model="handleRow.permission" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>手机号:</span>
+          <el-input v-model="handleRow.phone" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>相册集:</span>
+          <el-input v-model="handleRow.photos" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>密码:</span>
+          <el-input v-model="handleRow.pwd" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>qq:</span>
+          <el-input v-model="handleRow.qq" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>角色:</span>
+          <el-input v-model="handleRow.role" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>个性签名:</span>
+          <el-input v-model="handleRow.signature" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>身高:</span>
+          <el-input v-model="handleRow.stature" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>注册时间:</span>
+
+          <el-input v-model="handleRow.time" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>用户名:</span>
+          <el-input v-model="handleRow.user" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>vip到期时间:</span>
+          <el-input v-model="handleRow.vipEndTime" :disabled="true" size="mini" />
+        </div>
+
+        <div class="one">
+          <span>微信:</span>
+          <el-input v-model="handleRow.weChat" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>体重:</span>
+          <el-input v-model="handleRow.weight" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>年收入:</span>
+          <el-input v-model="handleRow.yearIncome" :disabled="true" size="mini" />
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- 用户信息模态框 -->
+    <el-dialog :visible.sync="dialogVisible.user" width="600px" :title="`${mode === 'save' ? '新增' : '编辑'}用户信息`" center style="z-index: 9999">
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="12">
+            <el-form-item label="用户名" prop="user">
+              <el-input v-model="form.user" />
+            </el-form-item>
+            <el-form-item label="手机号" prop="phone">
+              <el-input v-model="form.phone" />
+            </el-form-item>
+            <el-form-item label="头像" prop="icon">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img v-else :src="form.icon" style="width: 100%; height: 100%" alt="">
+              </div>
+            </el-form-item>
+            <el-form-item label="性别">
+              <el-select v-model="form.gender" placeholder="请选择">
+                <el-option v-for="(value, key) in map.gender" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="年龄" prop="age">
+              <el-input v-model="form.age" />
+            </el-form-item>
+            <el-form-item label="是否已婚" prop="beMarried">
+              <el-select v-model="form.beMarried" placeholder="请选择">
+                <el-option v-for="(value,key) in map.beMarried" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="生日" prop="birthday">
+              <el-date-picker
+                v-model="form.birthday"
+                type="date"
+                placeholder="选择日期"
+                style="width: 100%;"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="职业" prop="career">
+              <el-input v-model="form.career" />
+            </el-form-item>
+            <el-form-item label="星座" prop="constellation">
+              <el-input v-model="form.constellation" />
+            </el-form-item>
+            <el-form-item label="地理位置" prop="geography">
+              <el-input v-model="form.geography" />
+            </el-form-item>
+            <el-form-item label="家乡" prop="hometown">
+              <el-input v-model="form.hometown" />
+            </el-form-item>
+            <el-form-item label="标签" prop="labels">
+              <el-input v-model="form.labels" />
+            </el-form-item>
+            <el-form-item label="身高" prop="stature">
+              <el-input v-model="form.stature" />
+            </el-form-item>
+            <el-form-item label="微信" prop="weChat">
+              <el-input v-model="form.weChat" />
+            </el-form-item>
+            <el-form-item label="个性签名" prop="weChat">
+              <el-input v-model="form.signature" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="icon" @change="val => uploadFile(val, ['form','icon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.user = false">取 消</el-button>
+        <el-button type="primary" size="small" @click="updateSubmit">提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible.community" width="400px" :title="`发布动态`" center>
+      <el-form label-position="right" label-width="100px" :model="communityForm" size="mini">
+        <el-form-item label="标题">
+          <el-input v-model="communityForm.title" />
+        </el-form-item>
+        <el-form-item label="内容">
+          <el-input v-model="communityForm.content" type="textarea" :rows="3" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="communityForm.type" placeholder="请选择">
+            <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="communityForm.type == 1 || communityForm.type == 2" label="图片或视频">
+          <div class="icon-container" @click="fakeClick('upload')">
+            <i v-if="!communityForm.infoUrl" class="el-icon-upload" />
+            <img v-if="communityForm.infoUrl && communityForm.type == 1" :src="form.infoUrl" style="width: 100%; height: 100%" alt="">
+            <video v-if="communityForm.infoUrl && communityForm.type == 2" :src="form.infoUrl" style="width: 100%; height: 100%" />
+          </div>
+        </el-form-item>
+        <el-form-item label="是否点赞">
+          <el-select v-model="communityForm.isLike" placeholder="请选择">
+            <el-option v-for="(value, key) in map.isLike" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="communityForm.label" />
+        </el-form-item>
+        <el-form-item label="点赞数">
+          <el-input v-model="communityForm.likeNum" type="number" min="0" />
+        </el-form-item>
+        <el-form-item label="定位">
+          <el-input v-model="communityForm.position" />
+        </el-form-item>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="upload" @change="val => uploadFile(val, ['communityForm', 'infoUrl'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.community = false">取 消</el-button>
+        <el-button type="primary" size="small" @click="submitCommunity">提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 查看大图 -->
+    <!-- v-if="ifImg(editImg)" -->
+    <el-dialog title="大头像" center :visible.sync="bigVisible" width="30%">
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+
+    <el-dialog
+      center
+      title="相册集"
+      :visible.sync="photosVisible"
+      width="600px"
+      :modal-append-to-body="false"
+    >
+      <el-upload
+        ref="uploadPhotos"
+        action="/chat/user/edit"
+        list-type="picture-card"
+        :auto-upload="false"
+      />
+
+      <span slot="footer" class="dialog-footer">
+        <el-button size="small" @click="photosVisible = false">取 消</el-button>
+        <el-button type="primary" size="small" @click="updateUserPhotos">确 定</el-button>
+      </span>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { query, updateUser, userDelete, uploadQNImg } from '@/api/user'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { updateCommunity } from '@/api/community'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      filter: {
+        phone: '',
+        user: '',
+        gender: ''
+      },
+      map: {
+        gender: {
+          1: '男',
+          2: '女'
+        },
+        beMarried: {
+          1: '是',
+          2: '否'
+        },
+        isLike: {
+          1: '是',
+          2: '否'
+        },
+        type: {
+          0: '文字',
+          1: '图片',
+          2: '视频'
+        }
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      form: {
+        user: '',
+        phone: '',
+        icon: '',
+        gender: '',
+        beMarried: '',
+        birthday: '',
+        career: '',
+        constellation: '',
+        geography: '',
+        hometown: '',
+        labels: '',
+        stature: '',
+        weChat: '',
+        signature: ''
+      },
+      communityForm: {
+        type: '0',
+        content: '',
+        infoUrl: '',
+        isLike: '',
+        label: '',
+        likeNum: '',
+        position: '',
+        title: ''
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      newVisible: false, // 编辑的默认隐藏
+      dialogVisible: {
+        user: false,
+        community: false
+      },
+      dirRow: [], // 编辑
+      sels: [], // 复选框
+      handVisible: false,
+      handleRow: {}, // 查看详情
+      bigVisible: false,
+      editImg: [], // 接受头像值
+      photosVisible: false,
+      dialogImageUrl: '',
+      ImageUrlVisible: false,
+      picList: [] // duo图
+    }
+  },
+
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    showCommunity(row) {
+      this.tableData.row = row
+      this.communityForm = initForm(this.communityForm, ['type'])
+      this.dialogVisible.community = true
+    },
+    submitCommunity() {
+      const _form = Object.assign({ user: this.tableData.row.id }, this.communityForm)
+      updateCommunity(_form, 'add').then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.community = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.user = true
+    },
+
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+
+    updateSubmit() {
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateUser(_form, this.mode).then(res => {
+        debugger
+        this.$message.success(res.message)
+        this.dialogVisible.user = false
+        this.fetchData()
+      })
+    },
+    async uploadPhotos() {
+      const files = this.$refs['uploadPhotos'].uploadFiles.map(item => item.raw)
+      const photos = []
+      for (let i = 0; i < files.length; i++) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[i])
+        const res = await uploadQNImg(formData)
+        photos.push(res.data)
+      }
+
+      return photos
+    },
+    async updateUserPhotos() {
+      const photos = await this.uploadPhotos()
+      debugger
+      const _form = {
+        id: this.tableData.row.id,
+        photos: photos.join(',')
+      }
+      updateUser(_form, 'edit').then(res => {
+        this.$message.success(res.message)
+      })
+    },
+    handlePictureCardPreview(file) {
+      this.dialogImageUrl = file.url
+      this.ImageUrlVisible = true
+    },
+
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+
+    uploadFiles(e) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          this.dirRow.icon = res.data
+        })
+      }
+    },
+
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      query(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+
+    // 头像
+    changeImg(row) {
+      this.bigVisible = true
+      this.editImg = row
+    },
+
+    // 查看
+    handleClick(row) {
+      this.handVisible = true
+      this.handleRow = row
+    },
+    // 复选框的操作
+    selsChange(sels) {
+      this.sels = sels
+    },
+    // 批量删除
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((rowd) => rowd.id).join(',')
+      console.log(ids)
+      this.$confirm('确定要删除选中的用户吗?', '提示')
+        .then(() => {
+          userDelete({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    addIphone(row) {
+      this.photosVisible = true
+      this.tableData.row = row
+    }
+
+  }
+}
+</script>
+<style scoped lang="scss">
+.headJig:hover {
+  cursor: pointer;
+}
+.box {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+}
+.one {
+  display: flex;
+  .el-input{
+    line-height: 40px;
+  }
+}
+.one span {
+  width: 130px;
+  text-align: left;
+  height: 40px;
+  line-height: 40px;
+}
+.el-input {
+  background: content-box;
+}
+.iconIMG {
+  width: 200px;
+  height: 150px;
+  position: relative;
+  left: 80px;
+  top: -50px;
+}
+.gender {
+  margin-top: -50px;
+}
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+</style>

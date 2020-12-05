@@ -1,0 +1,5 @@
+<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>webIm</title><script type=text/javascript>var app = {
+          pagename:   "admin",
+          lang:       "zh",
+          appver:     "{#version}",
+      };</script><link href=./webImStatic/css/app.8004ba3e89d1bddcac33ae99c04b1aec.css rel=stylesheet></head><body><div id=app></div><script type=text/javascript src=./webImStatic/js/manifest.753671419fb8e3ddba22.js></script><script type=text/javascript src=./webImStatic/js/vendor.4ab5bc3ca03b7f2f706c.js></script><script type=text/javascript src=./webImStatic/js/app.e093d029f2d253de74f1.js></script></body></html>

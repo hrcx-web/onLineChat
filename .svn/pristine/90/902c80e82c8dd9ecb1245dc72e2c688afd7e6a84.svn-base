@@ -1,0 +1,273 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-select v-model="filter.type" placeholder="请选择订单类型" clearable>
+            <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button v-if="filter.type==1" type="primary" size="mini" icon="el-icon-search" @click="fetchData1" />
+        <el-button v-if="filter.type==4" type="primary" size="mini" icon="el-icon-search" @click="fetchData4" />
+        <el-form-item v-if="filter.type==1">
+          <el-date-picker
+            v-model="filters.time"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="yyyy-MM-dd"
+          />
+          <el-date-picker
+            v-model="filters.createTime"
+            type="date"
+            format="yyyy-MM-dd HH:mm:ss"
+            value-format="yyyy-MM-dd HH:mm:ss"
+            placeholder="选择当天日期"
+          />
+          <el-select v-model="filters.userType" clearable placeholder="主播选择">
+            <el-option v-for="(value, key) in map.userType" :key="key" :value="key" :label="value" />
+          </el-select>
+          <el-input v-model="filters.id" style="width:140px" clearable placeholder="请输入订单id" />
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData1" />
+        </el-form-item>
+        <el-form-item v-if="filter.type==4">
+          <el-date-picker
+            v-model="filters.time"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="yyyy-MM-dd"
+          />
+          <el-date-picker
+            v-model="filters.createTime"
+            type="date"
+            format="yyyy-MM-dd HH:mm:ss"
+            value-format="yyyy-MM-dd HH:mm:ss"
+            placeholder="选择当天日期"
+          />
+          <el-select v-model="filters.userType" clearable placeholder="主播选择">
+            <el-option v-for="(value, key) in map.userType" :key="key" :value="key" :label="value" />
+          </el-select>
+          <el-input v-model="filters.id" style="width:140px" clearable placeholder="请输入id" />
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData4" />
+        </el-form-item>
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left"> 礼物打赏订单</div>
+      <!-- <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length===0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+      </div> -->
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="公会收益">
+        <template slot-scope="scope">
+          <p>{{ scope.row.tradeName==null? '': '一级公会:'+scope.row.tradeName+scope.row.tradeProfit }}</p>
+
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="发起人">
+        <template slot-scope="scope">{{ scope.row.userId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="接收者">
+        <template slot-scope="scope">{{ scope.row.toUserId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="礼物">
+        <template slot-scope="scope">{{ scope.row.giftName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="交易钻石">
+        <template slot-scope="scope">
+          <p>单次钻石:{{ scope.row.coin }}</p>
+          <p>总钻石:{{ scope.row.totalCoin }}</p>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="被赠送者收益">
+        <template slot-scope="scope">
+          {{ scope.row.toUserProfit }}
+          上级收益:{{ scope.row.parentProfit }}
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="订单类型">
+        <template slot-scope="scope">{{ map.type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="系统抽成">
+        <template slot-scope="scope">{{ scope.row.fees }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="创建时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="守护过期时间">
+        <template slot-scope="scope">{{ scope.row.connectTime }}</template>
+      </el-table-column>
+
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+  </div>
+</template>
+
+<script>
+import { usersOrderList, deleteBatch } from '@/api/BetweenUsers'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        loading: false,
+        array: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        type1: 1,
+        type4: 4
+      },
+      sels: [],
+      filter: {
+        type: ''
+
+      },
+      filters: {
+        time: [],
+        userType: '',
+        id: '',
+        createTime: ''
+      },
+      map: {
+        userType: {
+          1: '是',
+          0: '否'
+        },
+        type: {
+          1: '礼物赠送',
+          4: '守护'
+        }
+      }
+
+    }
+  },
+  created() {
+    this.fetchData1()
+  },
+  methods: {
+    fetchDataC() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+
+      })
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      usersOrderList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fetchData1() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type1
+      }, this.filters)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      usersOrderList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fetchData4() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type4
+      }, this.filters)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      usersOrderList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      if (this.filter && this.filter.type === 1) {
+        this.pager.pageSize = val.size
+        this.pager.pageNo = val.index
+        this.fetchData1()
+      } else if (this.filter && this.filter.type === 4) {
+        this.pager.pageSize = val.size
+        this.pager.pageNo = val.index
+        this.fetchDataC()
+      } else {
+        this.pager.pageSize = val.size
+        this.pager.pageNo = val.index
+        this.fetchData1()
+      }
+    },
+    // 批量删除
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的消费订单-礼物赠送吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchDataC()
+          }).catch((error) => {
+            console.log(error)
+          })
+        })
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

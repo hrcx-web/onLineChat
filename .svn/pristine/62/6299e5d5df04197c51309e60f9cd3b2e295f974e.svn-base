@@ -1,0 +1,357 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">评论</div>
+      <div class="header-right">
+        <el-button size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="用户">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="头像">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 100px; height: 100px"
+            class="headJig"
+            :src="scope.row.userIcon"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="性别">
+        <template slot-scope="scope">{{ plies[scope.row.userGender] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="评论内容">
+        <template slot-scope="scope">{{ scope.row.content }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="评论时间">
+        <template slot-scope="scope">{{ scope.row.time }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="155px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="20">
+            <el-col :span="10">
+              <el-button size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <!-- 评论 -->
+    <el-dialog :visible.sync="dialogVisible.comments" width="450px" :title="`${mode === 'add' ? '新增' : '编辑'}评论信息`" center style="z-index: 9999">
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="15" />
+          <!-- <el-form-item label="用户">
+            <el-input v-model="form.user" />
+          </el-form-item> -->
+          <el-form-item label="头像">
+            <div class="icon-container" @click="fakeClick('userIcon')">
+              <i v-if="!form.userIcon" class="el-icon-plus" />
+              <img
+                v-else
+                :src="form.userIcon"
+                style="width: 100%; height: 100%"
+                alt=""
+              >
+            </div>
+          </el-form-item>
+          <el-form-item label="性别">
+            <el-select v-model="form.userGender" placeholder="请选择">
+              <el-option
+                v-for="(value,key) in plies"
+                :key="key"
+                :label="value"
+                :value="key"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="评论内容">
+            <el-input v-model="form.content" />
+          </el-form-item>
+          <!-- <el-form-item label="时间">
+            <el-input v-model="form.time" />
+          </el-form-item> -->
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility:hidden" class="userIcon" @change="val=>uploadFile(val,['form','userIcon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.comments=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 查看大头像 -->
+    <el-dialog title="大头像" center :visible.sync="imgVisible" width="30%">
+      <el-image :src="edImage.userIcon" />
+    </el-dialog>
+    <!-- 查看 -->
+    <el-dialog
+      title="评论信息"
+      center
+      :visible.sync="checkVisible"
+      width="680px"
+    >
+      <div class="box">
+        <div class="one">
+          <span>用户id:</span>
+          <el-input v-model="handleRow.user" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>头像:</span>
+          <el-input v-model="handleRow.userIcon" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>性别:</span>
+          <el-input v-model="plies[handleRow.userGender]" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>评论内容:</span>
+          <el-input v-model="handleRow.content" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>时间:</span>
+          <el-input v-model="handleRow.time" :disabled="true" size="mini" />
+        </div>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { commentList, updateComment, deleteBatch } from '@/api/comments'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+import { uploadQNImg } from '@/api/user'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        user: '', // 用户id
+        userIcon: '', // 头像
+        userGender: '', // 性别
+        content: '', // 内容
+        time: ''
+      },
+      sels: [],
+      dialogVisible: {
+        comments: false
+      },
+      handleRow: [],
+      checkVisible: false,
+      plies: {
+        1: '男',
+        2: '女'
+      },
+      edImage: [], // 大头像
+      imgVisible: false // 头像的框
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      const id = this.$route.query.id
+      this.tableData.loading = true
+      if (id) {
+        const _form = {
+          pageNo: this.pager.pageNo, // 页数
+          pageSize: this.pager.pageSize, // 条数
+          info: id
+        }
+
+        commentList(_form)
+          .then((res) => {
+            const { result = {}} = res
+            this.tableData.array = result.records
+            this.pager.total = result.total // 总数
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      } else {
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo,
+          pageSize: this.pager.pageSize
+        }, this.filter)
+        commentList(_form)
+          .then(res => {
+            const { result = {}} = res
+            this.tableData.array = result.records
+            // console.log(this.tableData.array)
+            this.pager.total = result.total
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      }
+    },
+    //    批量删除
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(array => array.id).join()
+      this.$confirm('确定要删除选中的评论信息吗?', '提示').then(() => {
+        deleteBatch({
+          ids: ids
+        }).then(data => {
+          this.$message.success(data.message)
+          this.fetchData()
+        })
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    // 新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.comments = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateComment(_form, this.mode).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.comments = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.comments = false
+      })
+    },
+    // 查看
+    handleClick(row) {
+      this.handleRow = row
+      this.checkVisible = true
+    },
+
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    // 大头像
+    changeImg(row) {
+      this.edImage = row
+      this.imgVisible = true
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    }
+  }
+}
+
+</script>
+
+<style scoped lang="scss">
+.header{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .header  .header-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+.header  .header-right{
+    width: 200px;
+}
+
+.box {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+}
+.one {
+  display: flex;
+
+}
+.one span {
+  width: 100px;
+  text-align: left;
+  height: 40px;
+  line-height: 40px;
+}
+.headJig{
+  cursor: pointer;
+}
+/* 新增图标 */
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 5px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+   i{
+     display: block;
+     font-size:24px;
+     position: absolute;
+     top:50%;
+     left: 50%;
+     transform: translate(-50%,-50%);
+   }
+}
+</style>

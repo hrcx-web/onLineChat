@@ -1,0 +1,464 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">店铺列表</div>
+      <div class="top-right">
+        <el-button type="success" size="small" :disabled="sels.length >1" @click="disciplinary(sels)">惩戒</el-button>
+        <el-button type="primary" size="small" @click="showDialog">新增</el-button>
+        <el-button size="small" :disabled="sels.length === 0" type="warning" @click="ClosingTime(sels)">一键批量打烊</el-button>
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="主播昵称">
+        <template slot-scope="scope">{{ scope.row.userName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="商店名称">
+        <template slot-scope="scope">{{ scope.row.shopName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="商品信息">
+        <template slot-scope="scope">{{ scope.row.info }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="商店logo">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px;cursor: pointer;"
+            :src="scope.row.logo"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="营业状态">
+        <template slot-scope="scope">{{ map.code[scope.row.code] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="累计收入">
+        <template slot-scope="scope">{{ scope.row.turnover }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="150px" label="重新营业时间">
+        <template slot-scope="scope">{{ scope.row.time }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="违规次数">
+        <template slot-scope="scope">{{ scope.row.exceptionNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="200px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="10">
+            <el-col :span="10" size="mini" style="margin-top: 5px">
+              <el-button size="mini" type="warning" plain :loading="tableData.loading" @click="mandatory(scope.row)">强制打烊</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" style="margin-top: 5px;margin-left:5px">
+              <el-button size="mini" type="success" plain :loading="tableData.loading" @click="timing(scope.row)">定时打烊</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" style="margin-top: 5px">
+              <el-button size="mini" type="danger" plain :loading="tableData.loading" @click="permanent(scope.row)">永久打烊</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog :visible.sync="dialogVisible.GoodsStore" width="500px" title="新增主播店铺信息" center>
+      <el-form ref="form" label-position="right" label-width="140px" :model="form" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="20">
+            <el-form-item label="主播昵称">
+              <el-input v-model="form.userName" />
+            </el-form-item>
+            <el-form-item label="商店名称">
+              <el-input v-model="form.shopName" />
+            </el-form-item>
+            <el-form-item label="商品logo">
+              <div class="icon-container" @click="fakeClick('logo')">
+                <i v-if="!form.logo" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.logo"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="商店信息">
+              <el-input v-model="form.info" />
+            </el-form-item>
+            <el-form-item label="开业状态">
+              <el-select v-model="form.code" placeholder="请选择">
+                <el-option v-for="(value,key) in map.code" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="重新营业时间">
+              <el-date-picker
+                v-model="form.time"
+                type="date"
+                format="yyyy-MM-dd HH:mm:ss"
+                value-format="yyyy-MM-dd HH:mm:ss"
+                placeholder="选择日期"
+              />
+
+            </el-form-item>
+            <el-form-item label="违规次数">
+              <el-input v-model="form.exceptionNum" />
+            </el-form-item>
+            <el-form-item label="累积收入">
+              <el-input v-model="form.turnover" />
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" />
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="logo" @change="val => uploadFile(val, ['form','logo'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.GoodsStore=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 惩戒 -->
+    <el-dialog :visible.sync="dialogVisible.disciplinary" width="460px" title="新增惩戒信息框" center>
+      <el-form ref="disciplinaryForm" :rules="rules" label-position="right" label-width="130px" :model="disciplinaryForm" size="mini">
+        <el-form-item label="店铺id">
+          <el-input v-model="disciplinaryForm.account" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="操作金额">
+          <el-input v-model="disciplinaryForm.money" type="number" :step="0.1" min="0" />
+        </el-form-item>
+        <el-form-item label="操作类型" prop="type">
+          <el-select v-model="disciplinaryForm.type" placeholder="请选择">
+            <el-option v-for="(value, key) in map.disciplinaryType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="账号类型">
+          <el-select v-model="disciplinaryForm.userType" :disabled="true" placeholder="请选择">
+            <el-option v-for="(value, key) in map.userType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="操作说明" prop="reason">
+          <el-input v-model="disciplinaryForm.reason" />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="disciplinaryForm.remark" />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.disciplinary = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="tableData.loading" @click="disciplinaryClick('disciplinaryForm')">提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog
+      title="商品logo展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.logo" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { userShoplist, carDeleteBatch, updateUserShop, userShopEdit, closeShop } from '@/api/goods'
+import { initForm, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+import { uploadQNImg, warnLogAdd } from '@/api/user'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        loading: false,
+        array: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        code3: 3,
+        code4: 4,
+        code5: 5
+      },
+      sels: [],
+      map: {
+        code: {
+          0: '待开业',
+          1: '营业中',
+          2: '已休息',
+          3: '强制打烊',
+          4: '定时打烊',
+          5: '永久打烊'
+        },
+        userType: {
+          1: '用户',
+          2: '公会'
+        },
+        disciplinaryType: {
+          1: '冻结收益',
+          2: '扣除收益',
+          3: '封号'
+        }
+      },
+      form: {
+        remark: '',
+        turnover: '',
+        exceptionNum: '',
+        code: '',
+        info: '',
+        logo: '',
+        shopName: '',
+        userName: '',
+        time: ''
+
+      },
+      // 惩戒
+      disciplinaryForm: {
+        remark: '',
+        reason: '',
+        userType: '',
+        type: '',
+        money: '',
+        account: ''
+
+      },
+
+      dialogVisible: {
+        GoodsStore: false,
+        imgVisible: false,
+        disciplinary: false
+      },
+      rules: {
+        type: [
+          { required: true, message: '请选择操作类型', trigger: 'blur' }
+
+        ],
+        reason: [
+          { required: true, message: '请输入操作说明', trigger: 'blur' }
+
+        ]
+
+      },
+      editImg: [] // 大logo
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      })
+      userShoplist(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要删除选中的店铺信息吗?', '提示')
+        .then(() => {
+          carDeleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+          })
+        })
+    },
+    showDialog(item) {
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      this.dialogVisible.GoodsStore = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateUserShop(_form).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.GoodsStore = false
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 新增的图片操作
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    },
+    // 强制
+    mandatory(row) {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        code: this.pager.code3,
+        id: row.id
+      })
+      userShopEdit(_form).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 定时
+    timing(row) {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        code: this.pager.code4,
+        id: row.id,
+        time: row.time
+      })
+      userShopEdit(_form).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 永久
+    permanent(row) {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        code: this.pager.code5,
+        id: row.id
+      })
+      userShopEdit(_form).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 惩戒
+    disciplinary() {
+      if (this.sels.length === 0) {
+        this.$message('请选择一个用户')
+      } else {
+        this.disciplinaryForm = initForm(this.disciplinaryForm)
+        // this.$nextTick(() => {
+        //   this.$refs.formName.clearValidate()
+        // })
+        const idses = this.sels.map((row) => row.id).join(',')
+        this.disciplinaryForm.account = idses
+        this.disciplinaryForm.userType = '1'
+        this.dialogVisible.disciplinary = true
+      }
+    },
+    disciplinaryClick(formName) {
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          let _disciplinaryForm = Object.assign(this.disciplinaryForm)
+          _disciplinaryForm = clearEmptyItem(_disciplinaryForm)
+          warnLogAdd(_disciplinaryForm).then(res => {
+            // debugger
+
+            this.$message.success(res.message)
+            this.dialogVisible.disciplinary = false
+            this.fetchData()
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    ClosingTime() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要进行操作吗?', '提示')
+        .then(() => {
+          closeShop({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+          })
+        })
+    }
+
+  }
+}
+
+</script>
+<style scoped   lang="scss">
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+  }
+}
+
+</style>

@@ -1,0 +1,249 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-select v-model="filter.code" clearable placeholder="请选择启用状态">
+            <el-option v-for="(value, key) in map.code" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">钻石套餐表</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="multipleTable.length === 0" type="danger" @click="deleteBatch()">批量删除</el-button>
+        <el-button size="small" type="primary" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column
+        align="center"
+        type="selection"
+      />
+      <el-table-column
+        align="center"
+        prop="cnum"
+        label="钻石数量"
+      />
+      <el-table-column
+        align="center"
+        prop="cost"
+        label="套餐价格"
+      />
+      <el-table-column
+        align="center"
+        prop="salaryNum"
+        label="累积销售量"
+      />
+      <el-table-column
+        align="center"
+        prop="distributeType"
+        label="启用状态"
+      >
+        <template slot-scope="scope">
+          <el-switch
+            v-model="scope.row.code"
+            active-text="启用"
+            inactive-text="停用"
+            :active-value="1"
+            :inactive-value="0"
+            @change="val => handleSwitch(val, scope.row.id)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="是否默认选中">
+        <template slot-scope="scope">{{ map.defaultSelect[scope.row.defaultSelect] }}</template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="createTime"
+        label="创建时间"
+      />
+      <el-table-column
+        align="center"
+        prop="updateTime"
+        label="修改时间"
+      />
+      <el-table-column
+        align="center"
+        label="操作"
+      >
+        <template slot-scope="scope">
+          <el-button size="mini" @click="showDialog('edit', scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <!-- 动态模态框 -->
+    <el-dialog :visible.sync="dialogVisible.info" width="460px" :title="`${mode === 'add' ? '新增' : '编辑'}钻石套餐`" center>
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-form-item label="钻石数量">
+          <el-input v-model="form.cNum" type="number" min="0" />
+        </el-form-item>
+        <el-form-item label="价格">
+          <el-input v-model="form.cost" type="number" :step="0.1" min="0" />
+        </el-form-item>
+        <el-form-item label="累积销售量">
+          <el-input v-model="form.salaryNum" type="number" min="0" />
+        </el-form-item>
+        <el-form-item label="是否默认选中">
+          <el-select v-model="form.defaultSelect" placeholder="请选择">
+            <el-option v-for="(value, key) in map.defaultSelect" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.info = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="formLoading" @click="updateSubmit">提 交</el-button>
+      </div>
+    </el-dialog>
+    <input type="text" class="copy" style="position:absolute;z-index:-1;opacity: 0;">
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { updateCMeal, queryCMeal, deleteCMeal } from '@/api/cmeal'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      dialogVisible: {
+        info: false
+      },
+      multipleTable: [],
+      filter: {
+        code: ''
+      },
+      map: {
+        code: {
+          0: '禁用',
+          1: '启用'
+        },
+        defaultSelect: {
+          1: '是',
+          0: '否'
+        }
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      form: {
+        cNum: '',
+        cost: '',
+        salaryNum: '',
+        defaultSelect: ''
+      },
+      formLoading: false,
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    copy(url) {
+      const inputDom = document.querySelector('input.copy')
+      inputDom.value = url || ''
+      inputDom.select()
+      document.execCommand('Copy')
+      this.$message.success('复制成功')
+    },
+    selsChange(sels) {
+      this.multipleTable = sels
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    handleSwitch(code, id) {
+      updateCMeal({
+        id,
+        code
+      }, 'edit').then(res => {
+        this.fetchData()
+      })
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.info = true
+    },
+
+    async updateSubmit() {
+      this.formLoading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateCMeal(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.info = false
+        this.fetchData()
+      }).finally(_ => {
+        this.formLoading = false
+      })
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      queryCMeal(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    deleteBatch() {
+      const ids = this.multipleTable.map((row) => row.id).join(',')
+      // console.log(ids)
+      this.$confirm('确定要删除选中的钻石套餐信息吗?', '提示')
+        .then(() => {
+          deleteCMeal({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+</style>

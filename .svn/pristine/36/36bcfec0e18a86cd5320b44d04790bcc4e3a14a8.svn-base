@@ -1,0 +1,36 @@
+import request from '@/utils/request'
+// 常用语配置查询
+export function webList(params) {
+  return request({
+    url: '/chat/word/webList',
+    method: 'POST',
+    params
+  })
+}
+
+// 新增
+export function addRobotWord(data) {
+  return request({
+    url: '/chat/word/addRobotWord',
+    method: 'POST',
+    contentType: 'x-www-form-urlencoded',
+    data
+  })
+}
+// 删除
+export function delet(params) {
+  return request({
+    url: '/chat/word/deleteRobotWord',
+    method: 'POST',
+    params
+  })
+}
+
+export function moreAdd(data) {
+  return request({
+    url: '/chat/word/moreAdd',
+    method: 'POST',
+    data
+  })
+}
+

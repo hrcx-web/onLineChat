@@ -1,0 +1,339 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.activityTitle" placeholder="请输入活动标题" />
+        </el-form-item>
+        <el-form-item>
+          <el-date-picker
+            v-model="filter.time"
+            align="right"
+            :editable="false"
+            clearable
+            unlink-panels
+            value-format="yyyy-MM-dd"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="活动开始日期"
+            end-placeholder="活动结束日期"
+          />
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">活动项目</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="multipleTable.length === 0" type="danger" @click="deleteBatch()">批量删除</el-button>
+        <el-button size="small" type="primary" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column
+        align="center"
+        type="selection"
+      />
+      <el-table-column
+        align="center"
+        prop="activityTitle"
+        label="活动标题"
+      />
+      <el-table-column
+        align="center"
+        prop="distributeType"
+        label="活动图片"
+      >
+        <template slot-scope="scope">
+          <a :href="scope.row.activityImg" target="_blank">
+            <img :src="scope.row.activityImg" width="80px" height="80px" alt="">
+          </a>
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="activityMsg"
+        label="活动描述"
+      />
+      <el-table-column
+        align="center"
+        prop="conditions"
+        label="参与条件"
+      />
+      <el-table-column
+        align="center"
+        prop="quota"
+        label="奖励人数"
+      />
+      <el-table-column
+        align="center"
+        prop="createTime"
+        label="开始时间"
+      />
+      <el-table-column
+        align="center"
+        prop="endTime"
+        label="结束时间"
+      />
+      <el-table-column
+        align="center"
+        label="状态"
+      >
+        <template slot-scope="scope">
+          <el-switch
+            v-model="scope.row.code"
+            active-text="启用"
+            inactive-text="停用"
+            :active-value="1"
+            :inactive-value="0"
+            @change="val => handleSwitch(val, scope.row.id)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        label="操作"
+      >
+        <template slot-scope="scope">
+          <el-button size="mini" @click="showDialog('edit', scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <!-- 动态模态框 -->
+    <el-dialog :visible.sync="dialogVisible.info" width="500px" :title="`${mode === 'add' ? '新增' : '编辑'}活动项目`" center>
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-form-item label="活动标题">
+          <el-input v-model="form.activityTitle" />
+        </el-form-item>
+        <el-form-item label="活动图片">
+          <div class="icon-container" @click="fakeClick('activityImg')">
+            <i v-if="!form.activityImg" class="el-icon-plus" />
+            <img v-else :src="form.activityImg" style="width: 100%; height: 100%" alt="">
+          </div>
+        </el-form-item>
+        <el-form-item label="活动描述">
+          <el-input v-model="form.activityMsg" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="参与条件">
+          <el-input v-model="form.conditions" />
+        </el-form-item>
+        <el-form-item label="奖励人数">
+          <el-input v-model="form.quota" />
+        </el-form-item>
+        <el-form-item label="活动时间">
+          <el-date-picker
+            v-model="form.time"
+            align="right"
+            :editable="false"
+            clearable
+            unlink-panels
+            value-format="yyyy-MM-dd"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+          />
+        </el-form-item>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="activityImg" @change="val => uploadFile(val, ['form','activityImg'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.info = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="formLoading" @click="updateSubmit">提 交</el-button>
+      </div>
+    </el-dialog>
+    <input type="text" class="copy" style="position:absolute;z-index:-1;opacity: 0;">
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { updateActivity, queryActivity, deleteActivity } from '@/api/activity'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { uploadQNImg } from '@/api/user'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      dialogVisible: {
+        info: false
+      },
+      multipleTable: [],
+      filter: {
+        activityTitle: '',
+        time: []
+      },
+      map: {
+        bannerType: {
+          1: '主页导航栏',
+          2: '开机闪图',
+          3: '主页公告',
+          4: '直播间跑马灯',
+          5: '直播间文字广告',
+          6: '直播间图片广告'
+        },
+        code: {
+          1: '启用',
+          0: '禁用',
+          3: 's'
+        }
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      form: {
+        // platformName: '',
+        activityImg: '',
+        activityMsg: '',
+        // resetValue: '',
+        activityTitle: '',
+        conditions: '',
+        quota: '',
+        time: []
+        // threshold: '',
+        // url: ''
+      },
+      formLoading: false,
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+    handleSwitch(code, id) {
+      updateActivity({
+        id,
+        code
+      }, 'edit').then(res => {
+        this.fetchData()
+      })
+    },
+    selsChange(sels) {
+      this.multipleTable = sels
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+        this.form.time = [item.createTime, item.endTime]
+      }
+      this.dialogVisible.info = true
+    },
+
+    async updateSubmit() {
+      this.formLoading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.createTime = _form.time[0]
+        _form.endTime = _form.time[1]
+      }
+      delete _form.time
+      updateActivity(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.info = false
+        this.fetchData()
+      }).finally(_ => {
+        this.formLoading = false
+      })
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.createTime = _form.time[0]
+        _form.endTime = _form.time[1]
+      }
+      delete _form.time
+      queryActivity(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    deleteBatch() {
+      const ids = this.multipleTable.map((row) => row.id).join(',')
+      console.log(ids)
+      this.$confirm('确定要删除选中的活动项目吗?', '提示')
+        .then(() => {
+          deleteActivity({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+</style>

@@ -1,0 +1,140 @@
+<template>
+  <div class="app-container">
+    <el-card class="rank-card">
+      <div slot="header" style="display:flex">
+        <span class="card-title">推广排行榜</span>
+        <el-date-picker
+          v-model="disData.filter.time"
+          size="mini"
+          type="daterange"
+          value-format="yyyy-MM-dd"
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          @change="fetchDisData"
+        />
+      </div>
+      <div>
+        <div v-loading="disData.loading">
+          <div v-for="(item, index) in disData.array" :key="index" style="display:flex;padding: 10px 0; border-bottom: 1px solid #eee">
+            <div class="item-icon">
+              <img :src="item.icon" alt="">
+            </div>
+            <div style="line-height: 30px; flex: 1;padding-left: 20px">
+              <div>{{ item.user }}</div>
+              <div style="font-size: 14px; color: #999">
+                <img src="../../assets/loginCount.png" width="16" height="16" alt="" title="登陆数">
+                {{ (item.wasLogined) }}
+                <img src="../../assets/signCount.png" width="16" height="16" alt="" style="margin-left: 15px" title="注册数">
+                {{ (item.count) }}
+              </div>
+            </div>
+            <img :src="map.genderIcon[item.gender]" alt="" width="30" height="30">
+          </div>
+        </div>
+        <pagination
+          :pager-size="disData.pager.pageSize"
+          :pager-index="disData.pager.pageNo"
+          :pager-total="disData.pager.total"
+          @pagination-change="val => handlePagerChange(val, 'disData')"
+        />
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { getDisRank } from '@/api/user'
+import { handleNumber } from '@/utils/index'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      handleNumber,
+      map: {
+        gender: {
+          1: '男',
+          2: '女'
+        },
+        genderIcon: {
+          1: require('../../assets/male.png'),
+          2: require('../../assets/female.png')
+        }
+      },
+      disData: {
+        filter: {
+          time: []
+        },
+        array: [],
+        row: {},
+        loading: false,
+        pager: {
+          pageNo: 1,
+          pageSize: 10,
+          total: 0
+        }
+      },
+      formLoading: false
+    }
+  },
+  created() {
+    this.fetchDisData()
+  },
+  methods: {
+    handlePagerChange(val, form) {
+      this[form].pager.pageNo = val.index
+      this[form].pager.pageSize = val.size
+      form === 'balanceData' ? this.fetchBalanceData() : this.fetchDisData()
+    },
+    fetchDisData() {
+      this.disData.loading = true
+      const _form = Object.assign({
+        pageNo: this.disData.pager.pageNo, // 页数
+        pageSize: this.disData.pager.pageSize // 条数
+      }, this.disData.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.timeBegin = _form.time[0]
+        _form.timeEnd = _form.time[1]
+      }
+      delete _form.time
+      getDisRank(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.disData.array = result.records
+          this.disData.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.disData.loading = false
+        })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+@import "~@/styles/variables.scss";
+.rank-card{
+    .el-card__header{
+        background: $menuBg !important;
+        color: #fff !important;
+    }
+    .card-title{
+        flex: 1;
+        line-height: 28px;
+    }
+
+    .item-icon{
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 1px double #999;
+        overflow: hidden;
+        img{
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+</style>

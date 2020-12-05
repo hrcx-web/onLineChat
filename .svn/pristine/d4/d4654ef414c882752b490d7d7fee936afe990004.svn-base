@@ -1,0 +1,524 @@
+<template>
+
+  <div class="app-container">
+    <div class="header">
+      <!-- <el-form inline size="mini">
+        <el-form-item>
+
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form> -->
+    </div>
+    <div class="top">
+      <div class="top-left">商品信息管理</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="商品名">
+        <template slot-scope="scope">{{ scope.row.name }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="110px" label="商品logo">
+        <template slot-scope="scope"> <el-image
+          style="width: 80px; height: 80px"
+          :src="scope.row.logo"
+          :preview-src-list="scope.row.srcLists"
+        /></template>
+      </el-table-column>
+      <el-table-column align="center" width="110px" label="商品大图">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px"
+            :src="scope.row.bigLogo"
+            :preview-src-list="scope.row.srcList"
+          /></template>
+      </el-table-column>
+      <el-table-column align="center" label="品牌">
+        <template slot-scope="scope">{{ scope.row.brand }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="120px" label="商品描述">
+        <template slot-scope="scope"><span v-html="scope.row.dsc" /></template>
+      </el-table-column>
+
+      <el-table-column align="center" label="价格">
+        <template slot-scope="scope">{{ scope.row.price }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="特价">
+        <template slot-scope="scope">{{ scope.row.special }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="商品返佣">
+        <template slot-scope="scope">{{ scope.row.rakeBack }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="120px" label="商品图片集">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 18px"
+            :src="checkIcon"
+            :preview-src-list="scope.row.Imgs"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="商品类型">
+        <template slot-scope="scope">{{ map.type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="冻结库存">
+        <template slot-scope="scope">{{ scope.row.frozenNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="安全库存">
+        <template slot-scope="scope">{{ scope.row.safeNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="总库存">
+        <template slot-scope="scope">{{ scope.row.num }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="100px" label="生产日期">
+        <template slot-scope="scope">{{ scope.row.expire }}</template>
+      </el-table-column>
+      <!-- <el-table-column align="center" label="商品产地">
+        <template slot-scope="scope">{{ scope.row.place }}</template>
+      </el-table-column> -->
+      <el-table-column align="center" label="是否上架">
+        <template slot-scope="scope">{{ map.code[scope.row.code] }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="100px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="10">
+            <el-col :span="10">
+              <!-- <el-button size="mini" @click="handleClick(scope.row)">查看</el-button> -->
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog :visible.sync="dialogVisible.goods" width="500px" :title="`${mode === 'add' ? '新增' : '编辑'}商品信息`" center>
+      <el-form ref="form" label-position="right" :validate-on-rule-change="false" label-width="120px" :model="form" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="20">
+            <el-form-item label="商品名称">
+              <el-input v-model="form.name" />
+            </el-form-item>
+            <el-form-item label="商品logo">
+              <div class="icon-container" @click="fakeClick('logo')">
+                <i v-if="!form.logo" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.logo"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="商品大图">
+              <div class="icon-container" @click="fakeClick('bigLogo')">
+                <i v-if="!form.bigLogo" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.bigLogo"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="品牌">
+              <el-input v-model="form.brand" />
+            </el-form-item>
+            <!-- 富文本 -->
+            <el-form-item label="商品描述">
+              <i class="el-icon-edit" style="cursor: pointer;font-size:20px" @click="dir" />
+            </el-form-item>
+            <el-form-item label="价格">
+              <el-input v-model="form.price" type="number" min="0" :step="0.1" />
+            </el-form-item>
+            <el-form-item label="特价">
+              <el-input v-model="form.special" type="number" min="0" :step="0.1" />
+            </el-form-item>
+            <el-form-item label="商品返佣">
+              <el-input v-model="form.rakeBack" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="商品图片集">
+              <div class="icon-boxs">
+                <div v-for="item in imgsFileList" :key="item" class="image-content">
+                  <img alt="" style="width:100%;height:100%" :src="item">
+                  <i class="el-icon-close" style="color:#eee;position:absolute;top:5px;left:42px;" @click="delImg('item')" />
+                </div>
+                <div class="image-content" @click="fakeClick('imgs')">
+                  <i class="el-icon-plus" />
+                </div>
+              </div>
+            </el-form-item>
+            <el-form-item label="商品类型">
+              <el-select v-model="form.type" placeholder="请选择">
+                <el-option v-for="(value,key) in map.type" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="安全库存">
+              <el-input v-model="form.safeNum" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="总库存">
+              <el-input v-model="form.num" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="生产日期">
+              <el-date-picker
+                v-model="form.time"
+                align="right"
+                :editable="false"
+                clearable
+                unlink-panels
+                value-format="yyyy.MM.dd"
+                type="daterange"
+                range-separator="至"
+                start-placeholder="生产日期"
+                end-placeholder="过期日期"
+              />
+            </el-form-item>
+            <el-form-item label="是否上架">
+              <el-select v-model="form.code" placeholder="请选择">
+                <el-option v-for="(value,key) in map.code" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="bigLogo" @change="val => uploadFile(val, ['form','bigLogo'])">
+      <input type="file" style="visibility: hidden" class="logo" @change="val => uploadFile(val, ['form','logo'])">
+      <input type="file" style="visibility: hidden" class="imgs" @change="val => uploadFiles(val, handlePhotos)">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.goods=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible.editor" width="800px" title="富文本编辑器" center>
+
+      <vue-tinymce
+        v-model="content"
+        :setting="setting"
+      />
+      <el-button type="primary" size="small" @click="saveHtml">保存</el-button>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { goodsList, updateGoods, deleteBatch } from '@/api/goods'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+import { uploadQNImg } from '@/api/user'
+export default {
+  name: 'ActicleInfo',
+
+  components: {
+    Pagination
+
+  },
+
+  data() {
+    return {
+      content: '',
+      setting: {
+        menubar: false,
+        toolbar: 'undo redo | fullscreen | formatselect alignleft aligncenter alignright alignjustify | link unlink | numlist bullist | image media table | fontselect fontsizeselect forecolor backcolor | bold italic underline strikethrough | indent outdent | superscript subscript | removeformat |',
+        toolbar_drawer: 'sliding',
+        quickbars_selection_toolbar: 'removeformat | bold italic underline strikethrough | fontsizeselect forecolor backcolor',
+        plugins: 'link image media table lists fullscreen quickbars',
+        language: 'zh_CN',
+        height: 350,
+        images_upload_handler: function(blobInfo, success, failure) {
+          const formData = new FormData()
+          formData.append('multipartFile', blobInfo.blob())
+          uploadQNImg(formData).then(response => {
+            if (response.status === 200) {
+              if (response.data) {
+                success(response.data)
+              }
+            } else {
+              failure('上传失败！')
+            }
+          })
+        }
+
+      },
+      checkIcon: require('../../assets/check.png'),
+      mode: '',
+      tableData: {
+        loading: false,
+        array: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      form: {
+        rakeBack: '',
+        imgs: '',
+        name: '',
+        num: '',
+        logo: '',
+        dsc: '',
+        price: '',
+        safeNum: '',
+        type: '',
+        code: '',
+        bigLogo: '',
+        special: '',
+        brand: '',
+        expire: '',
+        time: []
+
+      },
+      map: {
+        type: {
+          1: '美食',
+          2: '服装',
+          3: '美妆',
+          4: '家电'
+        },
+        code: {
+          1: '上架',
+          0: '下架'
+        }
+
+      },
+      dialogVisible: {
+        goods: false,
+        editor: false
+      },
+      imgsFileList: []
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+
+  methods: {
+
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      })
+      goodsList(_form)
+        .then((res) => {
+          const { result = {}} = res
+          if (Array.isArray(result.records)) {
+            result.records.forEach(item => {
+              if (item.bigLogo) {
+                item.srcList = item.bigLogo.split(',')
+              }
+              if (item.logo) {
+                item.srcLists = item.logo.split(',')
+              }
+              if (item.imgs) {
+                item.Imgs = item.imgs.split(',')
+              }
+            })
+          }
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    // 新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.imgsFileList = []
+      this.tableData.row = item || {}
+
+      this.form = initForm(this.form)
+
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+        if (item.expire) {
+          this.form.time = item.expire.split('-')
+        }
+        if (this.form.imgs) {
+          this.imgsFileList = this.form.imgs && this.form.imgs.split(',') || []
+        }
+      }
+      this.dialogVisible.goods = true
+    },
+
+    async updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      if (this.imgsFileList) {
+        _form.imgs = this.imgsFileList.join(',')
+      }
+
+      _form = clearEmptyItem(_form)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.expire = _form.time[0] + '-' + _form.time[1]
+      }
+
+      delete _form.time
+
+      updateGoods(_form, this.mode).then(res => {
+        // debugger
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.goods = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.goods = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的商品信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 新增的图片操作
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+    uploadFiles(e, func) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          if (func) {
+            func(res)
+          } else {
+            this.form.imgs = res.data
+          }
+        })
+      }
+    },
+    handlePhotos(res) {
+      this.imgsFileList.push(res.data)
+    },
+    delImg(index) {
+      this.imgsFileList.splice(index, 1)
+    },
+    dir() {
+      this.dialogVisible.editor = true
+      if (this.form.dsc) {
+        this.content = this.form.dsc
+      }
+    },
+    saveHtml() {
+      this.dialogVisible.editor = false
+      this.form.dsc = this.content
+    }
+
+  }
+}
+
+</script>
+
+<style scoped lang="scss">
+
+/* 新增图标 */
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+  }
+}
+
+.icon-boxs{
+  width: 100%;
+  height: 150px;
+   border-radius: 5px;
+  border: 1px dashed #ccc;
+  padding: 5px;
+  overflow-y: auto;
+
+}
+
+.image-content{
+  width: 47px;
+  height: 47px;
+  margin-right: 5px;
+  position: relative;
+  display: inline-block;
+  i{
+     display: block;
+    font-size: 12px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+  }
+}
+  .image-content .el-icon-close{
+  display: none;
+}
+  .image-content:hover .el-icon-close{
+      display: block;
+}
+</style>

@@ -1,0 +1,216 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.tradeName" placeholder="请输入工会名" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="filter.toUserName" placeholder="请输入上级用户昵称" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="filter.userName" placeholder="请输入下级用户昵称" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.type" clearable placeholder="请选择分销类型">
+            <el-option v-for="(value, key) in type" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchDataC" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">分销记录</div>
+      <!-- <div class="top-right">
+        <el-button size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+      </div> -->
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="上级用户昵称">
+        <template slot-scope="scope">{{ scope.row.toUserName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="上级提成">
+        <template slot-scope="scope">{{ scope.row.toUserProfit }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="下级用户昵称">
+        <template slot-scope="scope">{{ scope.row.userName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="分销类型">
+        <template slot-scope="scope">{{ type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="操作总金额">
+        <template slot-scope="scope">{{ scope.row.money }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="创建时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+  </div>
+</template>
+
+<script>
+import { distributorLogList, deleteBatchs } from '@/api/order'
+
+import Pagination from '@/components/Pagination'
+export default {
+  name: 'DistributorL',
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        pageNoC: 1,
+        pageSizeC: 10,
+        total: 0
+      },
+
+      sels: [],
+      type: {
+        1: '注册',
+        // 2: '首次通话',
+        // 3: '首次通话3分钟',
+        4: '充值提成',
+        5: '主播认证提成',
+        6: '收入提成'
+      },
+      filter: {
+        tradeName: '',
+        userName: '',
+        toUserName: '',
+        type: ''
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchDataC() {
+      const id = this.$route.query.id
+      this.tableData.loading = true
+      if (id) {
+        const _form = Object.assign({
+          pageNo: this.pager.pageNoC, // 页数
+          pageSize: this.pager.pageSizeC, // 条数
+          toUserId: id
+        })
+        distributorLogList(_form)
+          .then((res) => {
+            const { result = {}} = res
+            // console.log(result)
+            this.tableData.array = result.records
+            this.pager.total = result.total // 总数
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      } else {
+        const _form = Object.assign({
+          pageNo: this.pager.pageNoC, // 页数
+          pageSize: this.pager.pageSizeC// 条数
+
+        }, this.filter)
+        distributorLogList(_form)
+          .then((res) => {
+            const { result = {}} = res
+
+            this.tableData.array = result.records
+            this.pager.total = result.total // 总数
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      }
+    },
+    fetchData() {
+      const id = this.$route.query.id
+      this.tableData.loading = true
+      if (id) {
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo, // 页数
+          pageSize: this.pager.pageSize, // 条数
+          toUserId: id
+        })
+        distributorLogList(_form)
+          .then((res) => {
+            const { result = {}} = res
+            // console.log(result)
+            this.tableData.array = result.records
+            this.pager.total = result.total // 总数
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      } else {
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo, // 页数
+          pageSize: this.pager.pageSize// 条数
+
+        }, this.filter)
+        distributorLogList(_form)
+          .then((res) => {
+            const { result = {}} = res
+
+            this.tableData.array = result.records
+            this.pager.total = result.total // 总数
+          }).finally(_ => {
+            this.tableData.loading = false
+          })
+      }
+    },
+
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的分销列表吗?', '提示')
+        .then(() => {
+          deleteBatchs({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

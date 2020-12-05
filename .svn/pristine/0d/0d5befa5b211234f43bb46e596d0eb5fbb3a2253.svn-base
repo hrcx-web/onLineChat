@@ -1,0 +1,182 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">版本管理</div>
+      <div class="header-right">
+        <el-button size="small" type="danger" :disabled="this.sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" plain size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="版本描述">
+        <template slot-scope="scope">{{ scope.row.content }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="手机类型">
+        <template slot-scope="scope">{{ scope.row.phoneType }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="下载路径">
+        <template slot-scope="scope">{{ scope.row.url }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="版本号">
+        <template slot-scope="scope">{{ scope.row.version }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="强制更新">
+        <template slot-scope="scope">{{ scope.row.force }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="160" align="center">
+        <template slot-scope="scope" class="button">
+          <el-row :gutter="5">
+            <el-col :span="10">
+              <el-button style="width: 100%" size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog :visible.sync="dialogVisible.version" width="500px" :title="`${mode === 'add' ? '新增' : '编辑'}版本管理信息`" center style="z-index: 9999">
+
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="版本描述">
+              <el-input v-model="form.content" />
+            </el-form-item>
+            <el-form-item label="手机型号">
+              <el-input v-model="form.phoneType" />
+            </el-form-item>
+            <el-form-item label="下载路径">
+              <el-input v-model="form.url" />
+            </el-form-item>
+            <el-form-item label="版本号">
+              <el-input v-model="form.version" />
+            </el-form-item>
+            <el-form-item label="是否强制更新">
+              <el-input v-model="form.force" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.version=false"
+        >取 消</el-button>
+        <el-button type="primary" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+  </div>
+
+</template>
+
+<script>
+
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { versionList } from '@/api/version'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '', // 新增的
+      sels: [],
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        content: '', // 版本描述
+        force: '', // 是否强制跟新
+        phoneType: '', // 手机类型
+        url: '', // 下载路径
+        version: '' // 版本号
+      },
+      dialogVisible: {
+        version: false
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    //  查询
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      }, this.filter)
+      versionList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+
+    //    新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, {
+          numberToString: true
+        })
+      }
+      this.dialogVisible.version = true
+    },
+    // 提交
+    updateSubmit() {
+
+    },
+    // 查看
+    handleClick() {
+
+    },
+    // 批量删除
+    selsChange() {
+
+    },
+    // 分页
+    handlePagerChange() {
+
+    }
+  }
+}
+
+</script>
+
+<style scoped>
+
+</style>

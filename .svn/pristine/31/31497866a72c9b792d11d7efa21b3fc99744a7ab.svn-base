@@ -1,0 +1,546 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-select v-model="filter.msgCategory" clearable placeholder="请选择消息类型">
+            <el-option v-for="(value, key) in map.msgCategory" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.msgType" clearable placeholder="请选择通告对象类型">
+            <el-option v-for="(value, key) in map.msgType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.sendStatus" clearable placeholder="请选择发布状态">
+            <el-option v-for="(value, key) in map.sendStatus" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.type" clearable placeholder="请选择是否提醒">
+            <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">通知公告管理</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="multipleTable.length === 0" type="danger" @click="deleteBatch(multipleTable)">批量删除</el-button>
+        <el-button size="small" type="primary" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="信息摘要">
+        <template slot-scope="scope">{{ scope.row.msgAbstract }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="消息内容" :show-overflow-tooltip="true">
+        <template slot-scope="scope"> {{ scope.row.msgContent }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="标题">
+        <template slot-scope="scope">{{ scope.row.title }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="图片消息">
+        <template slot-scope="scope">
+          <el-image
+            v-if="scope.row.msgCategory=='3'"
+            style="width: 18px"
+            :src="checkIcon"
+            :preview-src-list="scope.row.obj"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="消息类型">
+        <template slot-scope="scope">
+          <p v-if="scope.row.msgCategory=='1'">{{ map.msgCategory[scope.row.msgCategory] }}</p>
+          <p v-if="scope.row.msgCategory=='2'"> {{ map.msgCategory[scope.row.msgCategory] }}</p>
+          <p v-if="scope.row.msgCategory=='3'"> {{ map.msgCategory[scope.row.msgCategory] }}</p>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="通告对象类型">
+        <template slot-scope="scope">{{ map.msgType[scope.row.msgType] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="发布状态">
+        <template slot-scope="scope">{{ map.sendStatus[scope.row.sendStatus] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="是否提醒">
+        <template slot-scope="scope">{{ map.type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="删除状态">
+        <template slot-scope="scope">{{ map.delFlag[scope.row.delFlag] }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="180" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="5">
+            <el-col :span="10" size="mini">
+              <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+            <el-col :span="14">
+              <el-button size="mini" type="primary" @click="handleClick(scope.row)">发布公告</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+      <!-- <el-table-column
+        align="center"
+        type="selection"
+      />
+      <el-table-column
+        align="center"
+        prop="userIm"
+        label="发起人环信号"
+      />
+      <el-table-column
+        align="center"
+        prop="message"
+        label="消息"
+        :show-overflow-tooltip="true"
+      />
+      <el-table-column
+        align="center"
+        prop="toUserIm"
+        label="接收者环信号"
+      />
+      <el-table-column
+        align="center"
+        prop="createTime"
+        label="消息接收时间"
+      />
+      <el-table-column
+        align="center"
+        label="处理客服"
+      >
+        <template slot-scope="scope">
+          {{ map.customerId[scope.row.customerId] }}
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        label="处理状态"
+      >
+        <template slot-scope="scope">
+          <div class="status-style" :class="scope.row.operatorStatus == 1 ? 'in-status' : ''">
+            {{ map.operatorStatus[scope.row.operatorStatus] }}
+            <i class="chat chat-chuli" style="margin: 0 6px; cursor:pointer" @click="updateSubmit(scope.row, 'operatorStatus')" />
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        label="阅读状态"
+      >
+        <template slot-scope="scope">
+          <div class="status-style" :class="scope.row.readStatus == 1 ? 'in-status' : ''">
+            {{ map.readStatus[scope.row.readStatus] }}
+            <i class="chat chat-yuedu" style="margin: 0 6px; cursor:pointer" @click="updateSubmit(scope.row, 'readStatus')" />
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="updateTime"
+        label="阅读时间"
+      /> -->
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog :visible.sync="dialogVisible.info" width="500px" :title="`${mode === 'add' ? '新增' : '编辑'}通知公告信息`" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="100px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="信息摘要">
+              <el-input
+                v-model="form.msgAbstract"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4}"
+                placeholder="请输入信息摘要或者跳转地址"
+              />
+            </el-form-item>
+            <el-form-item label="消息内容">
+              <el-input
+                v-model="form.msgContent"
+                placeholder="请输入内容"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4}"
+              />
+            </el-form-item>
+            <el-form-item label="标题">
+              <el-input v-model="form.title" />
+            </el-form-item>
+            <!-- <el-form-item label="图片信息">
+              <div class="icon-container" @click="fakeClick('msgImg')">
+                <i v-if="!form.msgImg" class="el-icon-plus" />
+                <img v-else :src="form.msgImg" style="width: 100%; height: 100%" alt="">
+              </div>
+
+            </el-form-item> -->
+            <el-form-item label="消息类型">
+              <el-select v-model="form.msgCategory" placeholder="请选择消息类型">
+                <el-option
+                  v-for="(value,key) in map.msgCategory"
+                  :key="key"
+                  :label="value"
+                  :value="key"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="form.msgCategory==3" label="轮播图">
+              <div class="icon-boxs">
+                <div v-for="item in imgsFileList" :key="item" class="image-content">
+                  <img style="width:100%;height:100%" :src="item" alt="">
+                  <i class="el-icon-close" style="color:#eee;position:absolute;top:5px;left:42px;" @click="delImg('item')" />
+                </div>
+                <div class="image-content" @click="fakeClick('photos')">
+                  <i class="el-icon-plus" />
+                </div>
+              </div>
+            </el-form-item>
+            <el-form-item label="通告对象类型">
+              <el-select v-model="form.msgType" placeholder="请选择通告对象类型">
+                <el-option
+                  v-for="(value,key) in map.msgType"
+                  :key="key"
+                  :label="value"
+                  :value="key"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="form.msgType==='4'" label="用户短id">
+              <el-input
+                v-model="form.userIds"
+                placeholder="多个以逗号隔开"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4}"
+              />
+            </el-form-item>
+            <el-form-item v-if="form.msgCategory==3" label="发布状态">
+              <el-select v-model="form.sendStatus" placeholder="请选择发布状态">
+                <el-option
+                  v-for="(value,key) in map.sendStatus"
+                  :key="key"
+                  :label="value"
+                  :value="key"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="是否提醒">
+              <el-select v-model="form.type" placeholder="请选择是否提醒">
+                <el-option
+                  v-for="(value,key) in map.type"
+                  :key="key"
+                  :label="value"
+                  :value="key"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden;" class="msgImg" @change="val=>uploadFile(val,['form','msgImg' ])">
+      <input type="file" style="visibility: hidden" class="photos" @change="val => uploadFiles(val, handlePhotos)">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.info=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { queryMutual, deleteMutual, updatepushNotify, pushData } from '@/api/user'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { uploadQNImg } from '@/api/user'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      checkIcon: require('../../assets/check.png'),
+      mode: '',
+      dialogVisible: {
+        info: false,
+        imgVisible: false
+      },
+      editImg: [], // 图片
+      multipleTable: [],
+      filter: {
+        msgCategory: '',
+        msgType: '',
+        sendStatus: '',
+        type: ''
+
+      },
+      map: {
+        msgCategory: {
+          1: '通知公告',
+          2: '系统消息',
+          3: '轮播图'
+        },
+        msgType: {
+          1: '真人主播',
+          2: '真人普通用户',
+          3: '全体用户',
+          4: '指定用户'
+        },
+        sendStatus: {
+          0: '未发布',
+          1: '已发布'
+        },
+        type: {
+          1: '是',
+          2: '否'
+        },
+        delFlag: {
+          0: '未删除',
+          1: '已删除'
+        }
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      formLoading: false,
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        msgAbstract: '',
+        msgContent: '',
+        title: '',
+        msgImg: '',
+        sendStatus: '',
+        msgType: '',
+        userIds: '',
+        msgCategory: '',
+        type: '',
+        delFlag: ''
+
+      },
+      imgsFileList: []
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+
+    selsChange(sels) {
+      this.multipleTable = sels
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+        if (this.form.msgCategory === '3') {
+          this.imgsFileList = this.form.msgImg && this.form.msgImg.split(',') || []
+        }
+      }
+      this.dialogVisible.info = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      if (this.imgsFileList) {
+        _form.msgImg = this.imgsFileList.join(',')
+      }
+      _form = clearEmptyItem(_form)
+      updatepushNotify(_form, this.mode).then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.info = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.info = false
+        this.tableData.loading = false
+      })
+    },
+    handleClick(item) {
+      this.$confirm('是否确定发布', '提示').then(() => {
+        pushData({ id: item.id }).then(res => {
+          this.$message.success(res.message)
+          this.fetchData()
+        })
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    // updateSubmit(item, type) {
+    //   this.formLoading = true
+    //   const status = item[type] === 1 ? 0 : 1
+    //   mutualEdit({
+    //     id: item.id,
+    //     [type]: item[type] === 1 ? 0 : 1
+    //   }, this.mode).then(res => {
+    //     // this.$message.success(res.message)
+    //     if (type === 'readStatus') {
+    //       this.fetchData()
+    //     } else {
+    //       item[type] = status
+    //     }
+    //   }).finally(_ => {
+    //     this.formLoading = false
+    //   })
+    // },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      queryMutual(_form)
+        .then((res) => {
+          const { result = {}} = res
+          if (result.records) {
+            result.records.forEach(item => {
+              if (item.msgImg) {
+                item.obj = item.msgImg.split(',')
+              }
+            })
+          }
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    deleteBatch() {
+      const ids = this.multipleTable.map((row) => row.id).join(',')
+      this.$confirm('确定要删除选中的通知公告信息吗?', '提示')
+        .then(() => {
+          deleteMutual({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+    fakeClick(className) {
+      const filesInput = document.querySelector(`input[type=file].${className}`)
+      filesInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+          this.$message.success(res.message)
+        })
+      }
+    },
+    handlePhotos(res) {
+      this.imgsFileList.push(res.data)
+    },
+    delImg(index) {
+      this.imgsFileList.splice(index, 1)
+    },
+    uploadFiles(e, func) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          if (func) {
+            func(res)
+          } else {
+            this.form.msgImg = res.data
+          }
+        })
+      }
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+.icon-container{
+  width: 80px;
+  height: 80px;
+  position: relative;
+    border-radius: 4px;
+  cursor: pointer;
+  border: 1px dashed #ccc;
+  i{
+  display: block;
+  position: absolute;
+  top:50%;
+  left:50%;
+  transform: translate(-50%,-50%);
+  }
+}
+.icon-boxs{
+  width: 100%;
+  height: 150px;
+   border-radius: 5px;
+  border: 1px dashed #ccc;
+  padding: 5px;
+  overflow-y: auto;
+
+}
+
+.image-content{
+  width: 47px;
+  height: 47px;
+  margin-right: 5px;
+  position: relative;
+  display: inline-block;
+  i{
+     display: block;
+    font-size: 12px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+  }
+}
+  .image-content .el-icon-close{
+  display: none;
+}
+  .image-content:hover .el-icon-close{
+      display: block;
+}
+// @import '@/styles/variables.scss';
+// .in-status{
+//     color: $menuBg;
+// }
+// .status-style{
+//     transition: .2s;
+// }
+</style>

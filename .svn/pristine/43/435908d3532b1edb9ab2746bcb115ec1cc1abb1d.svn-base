@@ -1,0 +1,327 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-select v-model="filter.type" clearable placeholder="请选择提现类型">
+            <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button v-if="filter.type==4" type="primary" size="mini" icon="el-icon-search" @click="fetchData4" />
+        <el-button v-if="filter.type==9" type="primary" size="mini" icon="el-icon-search" @click="fetchData9" />
+        <el-form-item v-if="filter.type==4">
+          <el-date-picker
+            v-model="filter.time"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="yyyy-MM-dd"
+          />
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData4" />
+        </el-form-item>
+
+        <el-form-item v-if="filter.type==9">
+          <el-date-picker
+            v-model="filter.time"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="yyyy-MM-dd"
+          />
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData9" />
+        </el-form-item>
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">提现订单</div>
+      <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length===0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="用户/公会名">
+        <template slot-scope="scope">{{ scope.row.userName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="外部订单">
+        <template slot-scope="scope">{{ scope.row.outId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="实际到账">
+        <template slot-scope="scope">{{ scope.row.realMoney+'元' }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="手续费">
+        <template slot-scope="scope">{{ scope.row.fees+'元' }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="操作金额">
+        <template slot-scope="scope">{{ scope.row.money+'元' }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="订单状态">
+        <template slot-scope="scope">{{ map.status[scope.row.status] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="发起时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="结束时间">
+        <template slot-scope="scope">{{ scope.row.updateTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="180px" label="操作">
+        <template slot-scope="scope">
+          <el-row :gutter="5">
+            <el-col :span="10">
+              <el-button type="success" plain size="mini" @click="clickVerify({id:scope.row.id,status:1}, scope.row)">通过</el-button>
+            </el-col>
+            <el-col :span="10">
+              <el-popover
+                v-model=" scope.row.centerDialogVisible"
+                placement="top-start"
+                width="180"
+                trigger="click"
+              >
+                <div>
+                  <el-form label-position="right" :model="form" size="mini">
+                    <el-form-item>
+                      <el-input
+                        v-model="form.reason"
+                        type="textarea"
+                        :autosize="{ minRows: 2, maxRows: 6}"
+                        placeholder="请输入驳回理由"
+                      />
+                    </el-form-item>
+                  </el-form>
+                  <span slot="footer" class="dialog-footer">
+                    <el-button size="mini" @click="scope.row.centerDialogVisible = false">取 消</el-button>
+                    <el-button type="primary" size="mini" @click="scope.row.centerDialogVisible = false;rejectedVerifySure(scope.row)">确 定</el-button>
+                  </span>
+                </div>
+                <el-button slot="reference" plain size="small" type="danger">驳回</el-button>
+              </el-popover>
+            </el-col>
+            <!-- <el-col :span="10">
+              <el-button size="mini" style="margin-top:5px" type="primary" plain @click="clickVerify({id:scope.row.id,status:3},scope.row)">取消</el-button>
+            </el-col> -->
+            <el-button size="small" plain type="warning" style="margin-top:5px;margin-left:-20px" @click="ReflectInfo(scope.row)">提现信息</el-button>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog :visible.sync="dialogVisible.reflect" width="400px" title="提现信息" center>
+      <el-form label-position="right" label-width="120px" size="mini">
+        <el-form-item label="账号">
+          <el-input v-model="tableData.arrays.account" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="真实姓名">
+          <el-input v-model="tableData.arrays.realName" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="银行名">
+          <el-input v-model="tableData.arrays.bankName" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="银行预留手机">
+          <el-input v-model="tableData.arrays.bankPhone" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="开户行所在地">
+          <el-input v-model="tableData.arrays.bankAdr" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="开户行详细地址">
+          <el-input v-model="tableData.arrays.bankAdrName" :disabled="true" />
+        </el-form-item>
+      </el-form>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { orderList, deleteBatch, orderVerify, queryById } from '@/api/order'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      filter: {
+        time: [],
+        type: ''
+      },
+      tableData: {
+        loading: false,
+        array: [],
+        arrays: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        type: 4,
+        type9: 9
+      },
+      map: {
+        status: {
+          0: '待审核',
+          1: '通过',
+          2: '驳回',
+          3: '已取消'
+        },
+        type: {
+          4: '用户提现',
+          9: '公会提现'
+        }
+      },
+      sels: [],
+      dialogVisible: {
+        reflect: false
+      },
+
+      form: {
+        reason: '',
+        status: 2
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type
+      })
+      orderList(_form).then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            item.centerDialogVisible = false
+          })
+        }
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 用户
+    fetchData4() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      orderList(_form).then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            item.centerDialogVisible = false
+          })
+        }
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 公会
+    fetchData9() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type9
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      orderList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageSize = val.size
+      this.pager.pageNo = val.index
+      this.fetchData4()
+    },
+    // 批量删除
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要删除选中的提现订单信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+    // 状态操作
+    clickVerify(data, item) {
+      orderVerify(data).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+      })
+    },
+    // 驳回确定
+    rejectedVerifySure(row) {
+      orderVerify({
+        id: row.id,
+        reason: this.form.reason,
+        status: this.form.status
+      }).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+        this.form.reason = ''
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    ReflectInfo(item) {
+      this.tableData.loading = true
+      this.dialogVisible.reflect = true
+      queryById({ userId: item.userId }).then(res => {
+        this.tableData.loading = false
+        this.tableData.arrays = res.result
+      }).catch(error => {
+        console.log(error)
+        this.tableData.loading = false
+      })
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

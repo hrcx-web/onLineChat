@@ -1,0 +1,26 @@
+import request from '@/utils/request'
+
+export function updateActivity(data, type) {
+  return request({
+    url: `/chat/activity/${type}`,
+    contentType: 'x-www-form-urlencoded',
+    method: 'POST',
+    data
+  })
+}
+
+export function queryActivity(params) {
+  return request({
+    url: `/chat/activity/list`,
+    method: 'GET',
+    params
+  })
+}
+
+export function deleteActivity(params) {
+  return request({
+    url: `/chat/activity/deleteBatch`,
+    method: 'DELETE',
+    params
+  })
+}

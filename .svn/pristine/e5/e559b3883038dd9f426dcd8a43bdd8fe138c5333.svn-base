@@ -1,0 +1,26 @@
+import request from '@/utils/request'
+
+export function rankList(params) {
+  return request({
+    url: '/chat/rank/list',
+    method: 'GET',
+    params
+  })
+}
+
+export function updateRank(data, type) {
+  return request({
+    url: `/chat/rank/${type}`,
+    contentType: 'x-www-form-urlencoded',
+    method: type === 'edit' ? 'POST' : 'POST',
+    data
+  })
+}
+
+export function deleteBatch(params) {
+  return request({
+    url: '/chat/rank/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}

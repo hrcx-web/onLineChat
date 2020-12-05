@@ -1,0 +1,463 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">奖品</div>
+      <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length===0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+        <el-button size="mini" type="success" :disabled="sels.length === 0" @click="ToObtain(sels)">盲盒配置奖品</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="排序">
+        <template slot-scope="scope">{{ scope.row.sort }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="礼物">
+        <template slot-scope="scope">{{ scope.row.giftId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="礼物名">
+        <template slot-scope="scope">{{ scope.row.giftName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="礼物图">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 100px; height: 100px; cursor: pointer;"
+            :src="scope.row.giftIcon"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="对应钻石数">
+        <template slot-scope="scope">{{ scope.row.coinNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="类型">
+        <template slot-scope="scope">{{ type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="概率区间">
+        <template slot-scope="scope">{{ scope.row.region }}</template>
+      </el-table-column>
+      <el-table-column label="操作" align="center">
+        <template slot-scope="scope" class="button">
+          <el-button size="mini" @click="showDialog('edit', scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <el-dialog :visible.sync="dialogVisible.prize" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}奖品信息`" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" label-width="160px" :validate-on-rule-change="false" :model="form" size="mini" :rules="rules">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="排序">
+              <el-input v-model="form.sort" type="number" min="0" />
+            </el-form-item>
+            <el-form-item label="对应钻石数">
+              <el-input v-model="form.coinNum" type="number" min="0" />
+            </el-form-item>
+            <el-form-item label="类型">
+              <el-select v-model="form.type" placeholder="请选择">
+                <el-option v-for="(value, key) in type" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="礼物">
+              <div class="icon-container" @click="handlShow">
+                <i v-if="!form.giftId" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.giftIcon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+              <el-input v-model="form.giftId" style="visibility: hidden" />
+            </el-form-item>
+            <el-form-item label="礼物名">
+              <el-input v-model="form.giftName" />
+            </el-form-item>
+            <el-form-item label="概率区间">
+              <el-col :span="11">
+                <el-form-item prop="regionMin">
+                  <el-input v-model="form.regionMin" type="number" :step="0.1" min="0" />
+                </el-form-item>
+              </el-col>
+              <el-col class="line" :span="2">-</el-col>
+              <el-col :span="11">
+                <el-form-item prop="regionMax">
+                  <el-input v-model="form.regionMax" type="number" :step="0.1" min="0" />
+                </el-form-item>
+              </el-col>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.prize=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit('form')">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible.Show" width="550px" title="礼物信息框" center style="z-index: 9999">
+      <el-table
+        v-loading="tableData.loading"
+        :data="tableData.arrayGife"
+        element-loading-text="Loading"
+        border
+        fit
+        style="width: 100%"
+        highlight-current-row
+        @selection-change="selsChange"
+      >
+        <!-- 复选框 -->
+        <el-table-column align="center" type="selection" />
+        <el-table-column label="介绍" align="center">
+          <template slot-scope="scope">
+            <span>{{ scope.row.letter }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column align="center" label="是否启用">
+          <template slot-scope="scope">{{ piles[scope.row.isInUse] }}</template>
+        </el-table-column>
+        <el-table-column label="小图标" align="center">
+          <template slot-scope="scope">
+            <el-image
+              style="width:80px;height:80px"
+              :src="scope.row.icon"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="大图标" align="center">
+          <template slot-scope="scope">
+            <el-image
+              style="width:80px;height:80px"
+              :src="scope.row.bigIcon"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="价值" align="center">
+          <template slot-scope="scope">{{ scope.row.cost }}</template>
+        </el-table-column>
+      </el-table>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.Show=false"
+        >取 消</el-button>
+        <el-button
+          type="primary"
+          :loading="tableData.loading"
+          size="small"
+          :disabled="sels.length===0"
+          @click="updateSubmitShow(sels)"
+        >提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 大头像 -->
+    <el-dialog
+      title="礼物图展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.giftIcon" />
+    </el-dialog>
+
+    <!-- 盲盒配置奖品 -->
+    <el-dialog :visible.sync="dialogVisible.ToObtain" width="500px" title="盲盒配置奖品信息" center>
+      <el-form ref="forms" label-position="right" :validate-on-rule-change="false" label-width="180px" :model="forms" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="20">
+            <el-form-item label="所有盲盒">
+              <el-select v-model="forms.boxId" placeholder="请选择">
+                <el-option v-for="item in map.info" :key="item.id" :value="item.id" :label="item.info" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.ToObtain=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmitToObtain">提交</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { prizelist, updatePrize, deleteBatchs, findByAll } from '@/api/activity'
+import { giftBox, giftBoxSetIds } from '@/api/taskManagement'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+export default {
+  name: 'Prize',
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      sels: [],
+      tableData: {
+        arrayGife: [],
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        type: '',
+        coinNum: '',
+        giftId: '',
+        sort: '',
+        giftIcon: '',
+        giftName: '',
+        regionMin: '',
+        regionMan: '',
+        region: ''
+      },
+      type: {
+        1: '转盘',
+        2: '砸金蛋',
+        3: '钻石蛋',
+        4: '幸运盲盒'
+      },
+      piles: {
+        1: '是',
+        2: '否'
+      },
+      map: {
+        info: {}
+      },
+      forms: {
+        ids: '',
+        boxId: ''
+      },
+      dialogVisible: {
+        prize: false,
+        Show: false,
+        imgVisible: false,
+        ToObtain: false
+      },
+      editImg: [],
+
+      rules: {
+        regionMin: [
+          { required: true, message: '请输入区间', trigger: 'change' }
+        ],
+        regionMax: [
+          { required: true, message: '请输入区间', trigger: 'change' }
+        ]
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+    this.findByAll()
+    this.giftBox()
+  },
+  methods: {
+    // 查询礼物
+    findByAll() {
+      this.tableData.loading = true
+      findByAll()
+        .then((res) => {
+          this.tableData.arrayGife = res.result
+        //   this.pager.total = res.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    giftBox() {
+      this.tableData.loading = true
+      giftBox().then(res => {
+        const { result = {}} = res
+        if (Array.isArray(result)) {
+          this.map.info = result
+        }
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fetchData() {
+      const ids = this.$route.query.ids
+      if (ids) {
+        this.tableData.loading = true
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo,
+          pageSize: this.pager.pageSize,
+          id: ids
+
+        })
+        prizelist(_form).then(res => {
+          const { result = {}} = res
+          // console.log(result)
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+      } else {
+        this.tableData.loading = true
+        const _form = Object.assign({
+          pageNo: this.pager.pageNo,
+          pageSize: this.pager.pageSize
+
+        })
+        prizelist(_form).then(res => {
+          const { result = {}} = res
+          // console.log(result)
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+      }
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      this.$nextTick(() => {
+        this.$refs.form.clearValidate()
+      })
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+        if (item.region) {
+          this.form.regionMin = item.region.split(',')[0]
+          this.form.regionMax = item.region.split(',')[1]
+        }
+      }
+      this.dialogVisible.prize = true
+    },
+    updateSubmit(formName) {
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+          _form = clearEmptyItem(_form)
+          if (_form.regionMin && _form.regionMax) {
+            _form.region = _form.regionMin + ',' + _form.regionMax
+          }
+
+          updatePrize(_form, this.mode).then(res => {
+            this.tableData.loading = false
+            this.$message.success(res.message)
+            this.dialogVisible.prize = false
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+            this.dialogVisible.prize = false
+            this.tableData.loading = false
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageSize = val.size
+      this.pager.pageNo = val.index
+      this.fetchData()
+    },
+
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要删除选中的奖品信息吗?', '提示')
+        .then(() => {
+          deleteBatchs({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+    handlShow() {
+      this.dialogVisible.Show = true
+      this.form.giftIcon = {}
+    },
+    // 提交
+    updateSubmitShow() {
+      const bigIcon = this.sels.map(row => row.bigIcon).join()
+      const ids = this.sels.map(row => row.id).join()
+      this.form.giftId = ids
+      this.form.giftIcon = bigIcon
+      this.dialogVisible.Show = false
+      this.findByAll()
+    },
+    // 页面显示的大图标
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    },
+    ToObtain() {
+      this.forms.ids = this.sels.map((row) => row.id).join()
+      this.dialogVisible.ToObtain = true
+    },
+    // 盲盒配置奖品
+    updateSubmitToObtain() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        ids: this.forms.ids,
+        boxId: this.forms.boxId
+      })
+      giftBoxSetIds(_form)
+        .then(res => {
+          this.$message.success(res.message)
+          this.dialogVisible.ToObtain = false
+          this.fetchData()
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    }
+  }
+}
+
+</script>
+<style scoped lang="scss">
+.icon-container{
+    width: 80px;
+    height: 80px;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    position: relative;
+      cursor: pointer;
+    i{
+        display: block;
+        position: absolute;
+        font-size: 24px;
+        top:50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+    }
+}
+</style>

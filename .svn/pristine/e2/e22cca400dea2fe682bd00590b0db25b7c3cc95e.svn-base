@@ -1,0 +1,128 @@
+<template>
+  <div class="app-container">
+    <el-card class="rank-card">
+      <div slot="header" style="display:flex">
+        <span class="card-title">余额排行榜</span>
+        <el-select v-model="balanceData.filter.gender" size="mini" style="width: 80px" @change="fetchBalanceData">
+          <el-option value="0" label="全部" />
+          <el-option v-for="(value, key) in map.gender" :key="key" :value="key" :label="value" />
+        </el-select>
+      </div>
+      <div>
+        <div v-loading="balanceData.loading">
+          <div v-for="(item, index) in balanceData.array" :key="index" style="display:flex;padding: 10px 0; border-bottom: 1px solid #eee">
+            <div class="item-icon">
+              <img :src="item.icon" alt="">
+            </div>
+            <div style="line-height: 30px; flex: 1;padding-left: 20px">
+              <div>{{ item.user }}</div>
+              <div title="金币余额" style="font-size: 14px; color: #999">
+                <img src="../../assets/coin.png" width="16" height="16" alt="">
+                {{ handleNumber(item.coinNum) }}
+              </div>
+            </div>
+            <img :src="map.genderIcon[item.gender]" alt="" width="30" height="30">
+          </div>
+        </div>
+        <pagination
+          :pager-size="balanceData.pager.pageSize"
+          :pager-index="balanceData.pager.pageNo"
+          :pager-total="balanceData.pager.total"
+          @pagination-change="val => handlePagerChange(val, 'balanceData')"
+        />
+      </div>
+    </el-card>
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { getBalanceRank } from '@/api/user'
+import { handleNumber } from '@/utils/index'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      handleNumber,
+      map: {
+        gender: {
+          1: '男',
+          2: '女'
+        },
+        genderIcon: {
+          1: require('../../assets/male.png'),
+          2: require('../../assets/female.png')
+        }
+      },
+      balanceData: {
+        filter: {
+          gender: '0'
+        },
+        array: [],
+        row: {},
+        loading: false,
+        pager: {
+          pageNo: 1,
+          pageSize: 10,
+          total: 0
+        }
+      },
+      formLoading: false
+    }
+  },
+  created() {
+    this.fetchBalanceData()
+  },
+  methods: {
+    handlePagerChange(val, form) {
+      this[form].pager.pageNo = val.index
+      this[form].pager.pageSize = val.size
+      form === 'balanceData' ? this.fetchBalanceData() : this.fetchDisData()
+    },
+    fetchBalanceData() {
+      this.balanceData.loading = true
+      const _form = Object.assign({
+        pageNo: this.balanceData.pager.pageNo, // 页数
+        pageSize: this.balanceData.pager.pageSize // 条数
+      }, this.balanceData.filter)
+      if (_form.gender === '0') delete _form.gender
+      getBalanceRank(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.balanceData.array = result.records
+          this.balanceData.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.balanceData.loading = false
+        })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+@import "~@/styles/variables.scss";
+.rank-card{
+    .el-card__header{
+        background: $menuBg !important;
+        color: #fff !important;
+    }
+    .card-title{
+        flex: 1;
+        line-height: 28px;
+    }
+
+    .item-icon{
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        border: 1px double #ccc;
+        overflow: hidden;
+        img{
+            width: 100%;
+            height: 100%;
+        }
+    }
+}
+</style>

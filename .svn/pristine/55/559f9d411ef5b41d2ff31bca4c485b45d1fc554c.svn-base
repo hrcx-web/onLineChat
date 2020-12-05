@@ -1,0 +1,174 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-select v-model="filter.tradeId" clearable placeholder="请选择公会">
+            <el-option v-for="(value, key) in map.tradeId" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">公会申请记录</div>
+      <div class="top-right">
+        <!-- <el-button size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button> -->
+        <!-- <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button> -->
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+    >
+
+      <el-table-column align="center" label="公会名">
+        <template slot-scope="scope">{{ scope.row.tradeName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="用户头像">
+        <template slot-scope="scope">
+          <el-image :src="scope.row.userIcon" style="width:80px;height:80px;cursor: pointer;" />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="申请材料">
+        <template slot-scope="scope">{{ scope.row.info }}</template>
+      </el-table-column>
+
+      <el-table-column align="center" label="手机号">
+        <template slot-scope="scope">{{ scope.row.phone }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="角色">
+        <template slot-scope="scope">{{ map.role[scope.row.role] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="审核员">
+        <template slot-scope="scope">{{ scope.row.systemBy }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="审核状态">
+        <template slot-scope="scope">{{ map.status[scope.row.status] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="申请时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="入会/更新时间">
+        <template slot-scope="scope">{{ scope.row.updateTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="180px" label="操作">
+        <template slot-scope="scope">
+          <el-button type="success" style="margin-left:10px" plain size="mini" @click="clickVerify({id:scope.row.id,status:1}, scope.row)">通过</el-button>
+          <el-button slot="reference" size="mini" plain type="danger" @click="clickVerify({id:scope.row.id,status:2}, scope.row)">驳回</el-button>
+
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+  </div>
+</template>
+
+<script>
+import { userTradeList, userTrade, tradeGetAll } from '@/api/union'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      map: {
+        status: {
+          0: '待审核',
+          1: '通过',
+          2: '驳回'
+        },
+        role: {
+          1: '公会普通成员',
+          2: '公会管理员'
+        },
+        tradeId: {}
+
+      },
+      filter: {
+        tradeId: ''
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+    this.tradeGetAll()
+  },
+  methods: {
+    tradeGetAll() {
+      tradeGetAll().then(res => {
+        const { result } = res
+        if (Array.isArray(result)) {
+          result.forEach(item => {
+            const _key = Object.keys(item)
+            _key.forEach(key => {
+              this.map.tradeId[key] = item[key]
+            })
+          })
+        }
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      }, this.filter)
+      userTradeList(_form)
+        .then(res => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.tableData.total = result.total
+        //   console.log(res)
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    // 状态操作
+    clickVerify(data, item) {
+      this.$confirm('确定要进行此操作吗?', '提示')
+        .then(() => {
+          userTrade(data).then(res => {
+            console.log(res)
+            this.$message.success(res.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    }
+
+  }
+}
+
+</script>
+<style scoped>
+</style>

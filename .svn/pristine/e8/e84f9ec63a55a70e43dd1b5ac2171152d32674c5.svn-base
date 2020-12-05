@@ -1,0 +1,152 @@
+<template>
+  <div>
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-date-picker
+            v-model="filter.time"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="yyyy-MM-dd"
+          />
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">提现排行榜</div>
+      <div class="top-right">
+        <!-- <el-button type="danger" size="small">批量删除</el-button> -->
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+    >
+      <el-table-column align="center" label="昵称">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="头像">
+        <template slot-scope="scope"> <el-image
+          style="width:100px;height:100px"
+          class="headimg"
+          :src="scope.row.icon"
+          @click="changeImg(scope.row)"
+        /></template>
+      </el-table-column>
+      <el-table-column align="center" label="性别">
+        <template slot-scope="scope">{{ map.gender[scope.row.gender] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="是否是会员">
+        <template slot-scope="scope">{{ map.vip[scope.row.isVip] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="提现金额(元)">
+        <template slot-scope="scope">{{ scope.row.money }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="余额">
+        <template slot-scope="scope">{{ scope.row.coinNum }}</template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <!-- 大头像 -->
+    <el-dialog
+      title="头像展示"
+      center
+      :visible.sync="imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { orderByCash } from '@/api/list'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        type: 1
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      map: {
+        gender: {
+          1: '男',
+          2: '女'
+        },
+        vip: {
+          0: '否',
+          1: '是'
+        }
+      },
+      filter: {
+        time: []
+      },
+      editImg: '',
+      imgVisible: false
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pagerSize: this.pager.pageSize,
+        type: this.pager.type
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      orderByCash(_form).then(res => {
+        // console.log(res)
+        this.tableData.array = res.rows
+        this.pager.total = res.data
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    changeImg(row) {
+      this.editImg = row
+      this.imgVisible = true
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    }
+  }
+}
+
+</script>
+<style scoped>
+.headimg{
+  cursor: pointer;
+}
+</style>

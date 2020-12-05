@@ -1,0 +1,308 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">版本管理</div>
+      <div class="header-right">
+        <el-button size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" plain size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="版本描述">
+        <template slot-scope="scope">{{ scope.row.content }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="手机类型">
+        <template slot-scope="scope">{{ map.phoneType[scope.row.phoneType] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="下载路径">
+        <template slot-scope="scope">{{ scope.row.url }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="版本号">
+        <template slot-scope="scope">{{ scope.row.version }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="是否强制更新">
+        <template slot-scope="scope">{{ map.isForce[scope.row.isForce] }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="160" align="center">
+        <template slot-scope="scope" class="button">
+          <el-row :gutter="5">
+            <el-col :span="10">
+              <el-button style="width: 100%" size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <!-- 版本信息 -->
+    <el-dialog :visible.sync="dialogVisible.version" width="400px" :title="`${mode === 'add' ? '新增' : '编辑'}版本管理信息`" center style="z-index: 9999">
+
+      <el-form ref="form" label-position="right" :rules="rules" :validate-on-rule-change="false " label-width="100px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="20">
+            <el-form-item label="版本描述" prop="content">
+              <el-input v-model="form.content" />
+            </el-form-item>
+            <el-form-item label="手机型号" prop="phoneType">
+              <el-select v-model="form.phoneType" placeholder="请选择">
+                <el-option v-for="(value,key) in map.phoneType" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="下载路径" prop="url">
+              <el-input v-model="form.url" />
+            </el-form-item>
+            <el-form-item label="版本号" prop="version">
+              <el-input v-model="form.version" />
+            </el-form-item>
+            <el-form-item label="是否更新" prop="isForce">
+              <el-select v-model="form.isForce" placeholder="请选择">
+                <el-option v-for="(value, key) in map.isForce" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.version=false"
+        >取 消</el-button>
+        <el-button type="primary" size="small" @click="updateSubmit('form')">提交</el-button>
+      </div>
+    </el-dialog>
+    <!-- 查看详情 -->
+    <el-dialog
+      title="版本管理信息"
+      center
+      :visible.sync="checkVisible"
+      width="400px"
+    >
+      <div class="box">
+        <div class="one">
+          <span>版本描述:</span>
+          <el-input v-model="handleRow.content" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>是否强制更新:</span>
+          <el-input v-model="map.isForce[handleRow.isForce]" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>手机类型:</span>
+          <el-input v-model="map.phoneType[handleRow.phoneType]" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>下载路径:</span>
+          <el-input v-model="handleRow.url" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>版本号:</span>
+          <el-input v-model="handleRow.version" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>时间:</span>
+          <el-input v-model="handleRow.time" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>ID:</span>
+          <el-input v-model="handleRow.id" :disabled="true" size="mini" />
+        </div>
+      </div>
+    </el-dialog>
+  </div>
+
+</template>
+
+<script>
+
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { versionList, versionAdd, deleteBatch } from '@/api/version'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '', // 新增的
+      sels: [], // 批量
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        content: '', // 版本描述
+        isForce: '', // 是否强制跟新
+        phoneType: '', // 手机类型
+        url: '', // 下载路径
+        version: '' // 版本号
+      },
+      dialogVisible: {
+        version: false
+      },
+      map: {
+        isForce: {
+          0: '否',
+          1: '是'
+        },
+        phoneType: {
+          1: 'ios',
+          2: 'android'
+        }
+      },
+      checkVisible: false,
+      handleRow: [],
+      rules: {
+        content: [{ required: true, message: '请输入版本描述', trigger: 'blur' }],
+        phoneType: [{ required: true, message: '请选择手机型号', trigger: 'change' }],
+        url: [{ required: true, message: '请输入下载路径', trigger: 'blur' }],
+        version: [{ required: true, message: '请输入版本号', trigger: 'blur' }],
+        isForce: [{ required: true, message: '请选择是否更新', trigger: 'change' }]
+
+      }
+
+    }
+  },
+
+  created() {
+    this.fetchData()
+  },
+
+  methods: {
+    //  查询
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      }, this.filter)
+      versionList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+
+    //    新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, {
+          numberToString: true
+        })
+      }
+      this.dialogVisible.version = true
+    },
+    // 提交
+    updateSubmit(formName) {
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+          _form = clearEmptyItem(_form)
+          versionAdd(_form, this.mode).then(res => {
+            // debugger
+            this.$message.success(res.message)
+            this.dialogVisible.version = false
+            this.fetchData()
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    // 查看
+    handleClick(row) {
+      this.handleRow = row
+      this.checkVisible = true
+    },
+    // 批量删除
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(form => form.id).join()
+      this.$confirm('确定要删除选中的文件吗?', '提示').then(() => {
+        deleteBatch({
+          ids: ids
+        }).then(data => {
+          this.$message.success(data.message)
+          this.fetchData()
+        })
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    // 分页
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    }
+  }
+}
+
+</script>
+
+<style scoped>
+.header{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .header  .header-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+.header  .header-right{
+    width: 200px;
+}
+
+.box {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.one {
+  display: flex;
+
+}
+.one span {
+  width: 160px;
+  text-align: right;
+  height: 40px;
+  line-height: 40px;
+  padding-right:20px ;
+}
+</style>

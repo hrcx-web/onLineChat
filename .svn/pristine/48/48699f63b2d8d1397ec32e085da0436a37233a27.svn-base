@@ -1,0 +1,262 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-date-picker
+            v-model="filter.time"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+            value-format="yyyy-MM-dd"
+          />
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData2" />
+        <el-form-item>
+          <el-select v-model="filter.type" clearable>
+            <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="filter.type==3">
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData3" />
+        </el-form-item>
+        <el-form-item v-if="filter.type==2">
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData2" />
+        </el-form-item>
+        <el-form-item v-if="filter.type==5">
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData5" />
+        </el-form-item>
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">消费订单-综合订单</div>
+      <div class="top-right">
+        <!-- <el-button type="danger" size="small" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button> -->
+        <!-- <el-button type="primary" plain size="small" @click="showDialog('videoOrder')">新增</el-button> -->
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column align="center" label="公会名">
+        <template slot-scope="scope">{{ scope.row.tradeName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="公会收益">
+        <template slot-scope="scope">{{ scope.row.tradeProfit }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="发起人">
+        <template slot-scope="scope">{{ scope.row.userId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="接收者">
+        <template slot-scope="scope">{{ scope.row.toUserId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="交易数量">
+        <template slot-scope="scope">{{ scope.row.num }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="单次交易金/币">
+        <template slot-scope="scope">{{ scope.row.coin }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="被赠送者收益">
+        <template slot-scope="scope">{{ scope.row.toUserProfit }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="发起人余额">
+        <template slot-scope="scope">{{ scope.row.userBalance }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="系统抽成">
+        <template slot-scope="scope">{{ scope.row.fees }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="订单类型">
+        <template slot-scope="scope">{{ map.type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="订单状态">
+        <template slot-scope="scope">{{ map.orderStatus[scope.row.orderStatus] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="挂断状态">
+        <template slot-scope="scope">{{ map.endStatus[scope.row.endStatus] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="响铃时间">
+        <template slot-scope="scope">{{ scope.row.waitTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="创建时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+  </div>
+</template>
+
+<script>
+import { usersOrderList, deleteBatch } from '@/api/BetweenUsers'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        loading: false,
+        array: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        type2: 2,
+        type3: 3,
+        type5: 5
+
+      },
+      mode: '',
+      form: {
+        to_userId: '',
+        type: ''
+      },
+      dialogVisible: {
+        video: false
+      },
+      map: {
+        type: {
+          2: '视频',
+          3: '语音',
+          5: '索要手机号'
+        },
+        orderStatus: {
+          0: '进行中',
+          1: '拒绝接听',
+          2: '已挂断',
+          3: '未接通',
+          4: '通话异常'
+        },
+        endStatus: {
+          0: '用户余额不足',
+          1: '接通后用户挂断',
+          2: '接通后主播挂断',
+          3: '未接通用户挂断',
+          4: '(未接通主播挂断)主播拒接',
+          5: '对方未接听',
+          6: '连接建立失败',
+          7: '通话超时',
+          8: '服务器连接失败',
+          9: '服务不可用',
+          10: '服务拒绝',
+          11: '服务欠费'
+        }
+      },
+      sels: [],
+      filter: {
+        time: [],
+        type: ''
+
+      }
+    }
+  },
+  created() {
+    this.fetchData2()
+  },
+  methods: {
+    fetchData2() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type2
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      usersOrderList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fetchData3() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type3
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      usersOrderList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fetchData5() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize,
+        type: this.pager.type5
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.begin_date = _form.time[0]
+        _form.end_date = _form.time[1]
+      }
+      delete _form.time
+      usersOrderList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageSize = val.size
+      this.pager.pageNo = val.index
+      this.fetchData5()
+      this.fetchData2()
+      this.fetchData3()
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的文件吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    }
+  }
+}
+
+</script>
+<style scoped>
+</style>

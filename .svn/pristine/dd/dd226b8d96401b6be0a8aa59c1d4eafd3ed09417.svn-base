@@ -1,0 +1,157 @@
+<template>
+  <div>
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item />
+      <!-- <el-button type="primary" size="mini" icon="el-icon-search" @click="featchData" /> -->
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">常用语配置</div>
+      <div class="top-right">
+        <el-button type="primary" plain size="small" @click="showDialog">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+    >
+
+      <el-table-column align="center" label="常用语">
+        <template slot-scope="scope">{{ scope.row.word }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="创建时间">
+        <template slot-scope="scope">{{ scope.row. createTime }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="150px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="20">
+            <el-col :span="10">
+              <el-button
+                size="mini"
+                type="danger"
+                @click="handleDelete(scope.$index, scope.row)"
+              >删除</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <!-- <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button> -->
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <el-dialog :visible.sync="dialogVisible.userWords" width="500px" title="新增常用语信息" center style="z-index: 9999">
+      <el-form ref="form" label-position="right" :rules="rules" label-width="100px" :validate-on-rule-change="false" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="24">
+            <el-form-item label="常用语" prop="word">
+              <el-input v-model="form.word" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.userWords=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit('form')">提交</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { userWordsList, updateUserWords, delet } from '@/api/phrase'
+// import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+export default {
+  data() {
+    return {
+      tableData: {
+        array: [],
+        loading: false,
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pagerSize: 10,
+        total: 0
+      },
+      form: {
+        word: ''
+      },
+      dialogVisible: {
+        userWords: false
+      },
+      rules: {
+        word: [
+          { required: true, message: '请输入常用语', trigger: 'blur' }
+
+        ] }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      })
+      userWordsList(_form).then(res => {
+        this.tableData.array = res.rows
+        this.pager.total = res.total
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    showDialog() {
+      this.dialogVisible.userWords = true
+      this.form = {}
+    },
+    // 删除
+    handleDelete(index, row) {
+      console.log(index, row)
+      delet({
+        word: row.word
+      }).then(data => {
+        this.$message.success(data.message)
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+      })
+    },
+    // 提交
+    updateSubmit(form) {
+      this.$refs[form].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          updateUserWords({
+            word: this.form.word
+          }).then(res => {
+            this.$message.success(res.message)
+            this.tableData.loading = false
+            this.dialogVisible.userWords = false
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    }
+
+  }
+}
+
+</script>
+<style scoped>
+</style>

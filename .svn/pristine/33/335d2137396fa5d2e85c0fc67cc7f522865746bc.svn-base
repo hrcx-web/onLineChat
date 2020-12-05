@@ -1,0 +1,27 @@
+import request from '@/utils/request'
+
+// 查询版本管理
+export function versionList(params) {
+  return request({
+    url: '/chat/version/list',
+    method: 'GET',
+    params
+  })
+}
+// 版本管理添加编辑
+export function versionAdd(params, type) {
+  return request({
+    url: `/chat/version/${type}`,
+    contentType: type === 'edit' ? 'x-www-form-urlencoded' : undefined,
+    method: type === 'edit' ? 'PUT' : 'POST',
+    params
+  })
+}
+export function deleteBatch(params) {
+  return request({
+    url: '/chat/version/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}
+

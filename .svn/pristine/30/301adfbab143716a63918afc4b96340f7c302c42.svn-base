@@ -1,0 +1,26 @@
+import request from '@/utils/request'
+// 常用语配置查询
+export function userWordsList(params) {
+  return request({
+    url: '/chat/word/userWords/list',
+    method: 'GET',
+    params
+  })
+}
+
+// 新增
+export function updateUserWords(params) {
+  return request({
+    url: '/chat/word/userWords/add',
+    method: 'POST',
+    params
+  })
+}
+// 删除
+export function delet(params) {
+  return request({
+    url: '/chat/word/userWords/delete',
+    method: 'DELETE',
+    params
+  })
+}

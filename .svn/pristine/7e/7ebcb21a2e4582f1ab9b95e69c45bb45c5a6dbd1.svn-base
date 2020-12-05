@@ -1,0 +1,132 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">购物车</div>
+      <div class="top-right">
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <!-- <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button> -->
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="商品名">
+        <template slot-scope="scope">{{ scope.row.goodsName }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="商品logo">
+        <template slot-scope="scope">{{ scope.row.goodsLogo }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="单价">
+        <template slot-scope="scope">{{ scope.row.price }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="商品数量">
+        <template slot-scope="scope">{{ scope.row.num }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="总价">
+        <template slot-scope="scope">{{ scope.row.totalPrice }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="商品参数">
+        <template slot-scope="scope">{{ scope.row.qualitys }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="状态">
+        <template slot-scope="scope">{{ map.code[scope.row.code] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <div class="tops" />
+  </div>
+</template>
+
+<script>
+import { carList, carDeleteBatch } from '@/api/goods'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      tableData: {
+        loading: false,
+        array: [],
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      map: {
+        code: {
+          1: '正常',
+          2: '商品已下架'
+        }
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      })
+      carList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join()
+      this.$confirm('确定要删除选中的购物车信息吗?', '提示')
+        .then(() => {
+          carDeleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+          })
+        })
+    }
+  }
+}
+
+</script>
+<style scoped   lang="scss">
+
+</style>

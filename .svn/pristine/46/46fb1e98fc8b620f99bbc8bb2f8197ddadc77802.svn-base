@@ -1,0 +1,36 @@
+import request from '@/utils/request'
+
+// 礼物模块新增
+export function add(data) {
+  return request({
+    url: '/chat/gift/add',
+    method: 'POST',
+    data
+
+  })
+}
+// 礼物模块查询
+export function getList(params) {
+  return request({
+    url: '/chat/gift/list',
+    method: 'GET',
+    params
+  })
+}
+// 礼物模块批量删除
+export function getDelete(params) {
+  return request({
+    url: '/chat/gift/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}
+// 礼物模块编辑保存
+export function getS(data) {
+  return request({
+    url: '/chat/gift/edit',
+    method: 'PUT',
+    data
+  })
+}
+

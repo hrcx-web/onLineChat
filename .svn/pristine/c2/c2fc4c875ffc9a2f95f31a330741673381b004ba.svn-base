@@ -1,0 +1,482 @@
+import Vue from 'vue'
+import Router from 'vue-router'
+
+Vue.use(Router)
+
+/* Layout */
+import Layout from '@/layout'
+
+/**
+ * Note: sub-menu only appear when route children.length >= 1
+ * Detail see: https://panjiachen.github.io/vue-element-admin-site/guide/essentials/router-and-nav.html
+ *
+ * hidden: true                   if set true, item will not show in the sidebar(default is false)
+ * alwaysShow: true               if set true, will always show the root menu
+ *                                if not set alwaysShow, when item has more than one children route,
+ *                                it will becomes nested mode, otherwise not show the root menu
+ * redirect: noRedirect           if set noRedirect will no redirect in the breadcrumb
+ * name:'router-name'             the name is used by <keep-alive> (must set!!!)
+ * meta : {
+    roles: ['admin','editor']    control the page roles (you can set multiple roles)
+    title: 'title'               the name show in sidebar and breadcrumb (recommend set)
+    icon: 'svg-name'/'el-icon-x' the icon show in the sidebar
+    breadcrumb: false            if set false, the item will hidden in breadcrumb(default is true)
+    activeMenu: '/example/list'  if set path, the sidebar will highlight the path you set
+  }
+ */
+
+/**
+ * constantRoutes
+ * a base page that does not have permission requirements
+ * all roles can be accessed
+ */
+export const constantRoutes = [
+  {
+    path: '/login',
+    component: () => import('@/views/login/index'),
+    hidden: true
+  },
+
+  {
+    path: '/404',
+    component: () => import('@/views/404'),
+    hidden: true
+  },
+
+  {
+    path: '/',
+    component: Layout,
+    redirect: '/dashboard',
+    children: [{
+      path: 'dashboard',
+      name: 'Dashboard',
+      component: () => import('@/views/dashboard/index'),
+      meta: { title: '首页', icon: 'dashboard' }
+    }]
+  },
+
+  {
+    path: '/users',
+    component: Layout,
+    meta: { title: '用户管理', icon: 'Users' },
+    children: [
+      {
+        path: 'index',
+        name: 'users',
+        component: () => import('@/views/users/index'),
+        meta: { title: '用户列表', icon: 'RightArrow' }
+      },
+      {
+        path: 'verify',
+        name: 'verify',
+        component: () => import('@/views/users/verify'),
+        meta: { title: '用户认证', icon: 'RightArrow' }
+      },
+      {
+        path: 'community',
+        name: 'community',
+        component: () => import('@/views/users/community'),
+        meta: { title: '社区相关', icon: 'RightArrow' }
+      },
+      {
+        path: 'comments',
+        name: 'comments',
+        component: () => import('@/views/comments/index'),
+        meta: { title: '评论管理', icon: 'RightArrow' }
+      },
+      {
+        path: 'giveLike',
+        name: 'giveLike',
+        component: () => import('@/views/giveLike/index'),
+        meta: { title: '点赞信息', icon: 'RightArrow' }
+      },
+      {
+        path: 'collection',
+        name: 'collection',
+        component: () => import('@/views/users/collection'),
+        meta: { title: '收款方式配置', icon: 'RightArrow' },
+        hidden: true
+      },
+      {
+        path: 'feedback',
+        name: 'feedback',
+        component: () => import('@/views/users/feedback'),
+        meta: { title: '意见反馈', icon: 'RightArrow' }
+
+      },
+      {
+        path: 'report',
+        name: 'report',
+        component: () => import('@/views/users/report'),
+        meta: { title: '举报', icon: 'RightArrow' }
+
+      }
+    ]
+  },
+
+  {
+    path: '/appconfig',
+    component: Layout,
+    redirect: '/table',
+    name: 'Example',
+    meta: { title: 'APP配置', icon: 'Gift' },
+    children: [
+      {
+        path: 'table',
+        name: 'Table',
+        component: () => import('@/views/table/index'),
+        meta: { title: '礼物管理', icon: 'RightArrow' }
+      },
+      {
+        path: 'vip',
+        name: 'VIP',
+        component: () => import('@/views/VIP/index'),
+        meta: { title: 'VIP管理', icon: 'RightArrow' }
+      },
+      {
+        path: 'label',
+        name: 'label',
+        component: () => import('@/views/label/index'),
+        meta: { title: '标签管理', icon: 'RightArrow' }
+      },
+      {
+        path: 'cMeal',
+        name: 'cMeal',
+        component: () => import('@/views/users/cMeal'),
+        meta: { title: 'C币套餐', icon: 'RightArrow' }
+      },
+      {
+        path: 'affiche',
+        name: 'affiche',
+        component: () => import('@/views/affiche/index'),
+        meta: { title: '公告配置', icon: 'RightArrow' }
+      },
+      {
+        path: 'version',
+        name: 'version',
+        component: () => import('@/views/version/index'),
+        meta: { title: '版本管理', icon: 'RightArrow' }
+      },
+      {
+        path: 'customer',
+        name: 'customer',
+        component: () => import('@/views/customer/index'),
+        meta: { title: '客服列表', icon: 'RightArrow' }
+      },
+      {
+        path: 'notice',
+        name: 'notice',
+        component: () => import('@/views/users/notice'),
+        meta: { title: '通知管理', icon: 'RightArrow' }
+      }
+      // {
+      //   path: 'phrase',
+      //   name: 'phrase',
+      //   component: () => import('@/views/phrase/index'),
+      //   meta: { title: '常用语配置', icon: 'RightArrow' }
+      // }
+    ]
+  },
+
+  // {
+  //   path: '/form',
+  //   component: Layout,
+  //   children: [
+  //     {
+  //       path: 'index',
+  //       name: 'Form',
+  //       component: () => import('@/views/form/index'),
+  //       meta: { title: 'Form', icon: 'form' }
+  //     }
+  //   ]
+  // },
+  {
+    path: '/order',
+    component: Layout,
+    meta: { title: '订单管理', icon: 'form' },
+    children: [
+      {
+        path: 'financialStatements',
+        name: 'financialStatements',
+        component: () => import('@/views/order/financialStatements'),
+        meta: { title: '财务报表', icon: 'RightArrow' }
+      },
+      {
+        path: 'vipOrder',
+        name: 'vipOrder',
+        component: () => import('@/views/order/vipOrder'),
+        meta: { title: 'vip订单', icon: 'RightArrow' }
+      },
+      {
+        path: 'withDrawal',
+        name: 'withDrawal',
+        component: () => import('@/views/order/withDrawal'),
+        meta: { title: '提现订单', icon: 'RightArrow' }
+      }, {
+        path: 'topUp',
+        name: 'topUp',
+        component: () => import('@/views/order/topUp'),
+        meta: { title: '充值订单', icon: 'RightArrow' }
+      },
+
+      {
+        path: 'BViptopUp',
+        name: 'BViptopUp',
+        component: () => import('@/views/order/BViptopUp'),
+        meta: { title: '后台vip充值', icon: 'RightArrow' }
+      },
+      {
+        path: 'BTopUp',
+        name: 'BTopUp',
+        component: () => import('@/views/order/BTopUp'),
+        meta: { title: '后台聊币充值', icon: 'RightArrow' }
+      },
+      {
+        path: 'consumptionGift',
+        name: 'consumptionGift',
+        component: () => import('@/views/order/consumptionGift'),
+        meta: { title: '消费订单-礼物赠送', icon: 'RightArrow' }
+      },
+      {
+        path: 'consumptionVideo',
+        name: 'consumptionVideo',
+        component: () => import('@/views/order/consumptionVideo'),
+        meta: { title: '消费订单-视频', icon: 'RightArrow' }
+      },
+      {
+        path: 'voice',
+        name: 'voice',
+        component: () => import('@/views/order/voice'),
+        meta: { title: '消费订单-语音', icon: 'RightArrow' }
+      }
+    ]
+  },
+  {
+    path: '/distributor',
+    component: Layout,
+    meta: { title: '渠道商管理', icon: 'Distributor' },
+    children: [
+      {
+        path: 'admin',
+        name: 'distributorAdmin',
+        component: () => import('@/views/distributor/admin'),
+        meta: { title: '渠道商管理员管理', icon: 'RightArrow' }
+      },
+      {
+        path: 'info',
+        name: 'distributorInfo',
+        component: () => import('@/views/distributor/info'),
+        meta: { title: '渠道商信息管理', icon: 'RightArrow' }
+      },
+      {
+        path: 'transform',
+        name: 'distributorInfo',
+        component: () => import('@/views/distributor/transform'),
+        meta: { title: '渠道商转化分析', icon: 'RightArrow' }
+      }
+
+    ]
+  },
+  {
+    path: '/robot',
+    component: Layout,
+    children: [
+      {
+        path: 'index',
+        name: 'index',
+        component: () => import('@/views/robot/index'),
+        meta: { title: '机器人模拟消息发送', icon: 'zhinengjiqiren' }
+      }
+    ]
+  },
+  {
+    path: '/advertisement',
+    component: Layout,
+    meta: { title: '广告管理', icon: 'Distributor' },
+    children: [
+      {
+        path: 'index',
+        name: 'advertisement',
+        component: () => import('@/views/advertisement/index'),
+        meta: { title: '动态广告', icon: 'AD' }
+      }
+    ]
+  },
+  {
+    path: '/activity',
+    component: Layout,
+    meta: { title: '活动推广', icon: 'Distributor' },
+    children: [
+      {
+        path: 'index',
+        name: 'activity',
+        component: () => import('@/views/activity/index'),
+        meta: { title: '活动项目', icon: 'Activity' }
+      }
+    ]
+  },
+  {
+    path: '/list',
+    component: Layout,
+    meta: { title: '排行榜', icon: 'hongqi' },
+    children: [
+      {
+        path: 'consumptionList',
+        name: 'consumptionList',
+        component: () => import('@/views/list/consumptionList'),
+        meta: { title: '消费排行榜', icon: 'RightArrow' }
+      },
+      {
+        path: 'topUPlist',
+        name: 'topUPlist',
+        component: () => import('@/views/list/topUPlist'),
+        meta: { title: '充值排行榜', icon: 'RightArrow' }
+      },
+      {
+        path: 'withdrawalList',
+        name: 'withdrawalList',
+        component: () => import('@/views/list/withdrawalList'),
+        meta: { title: '提现排行榜', icon: 'RightArrow' }
+      },
+      {
+        path: 'costRank',
+        name: 'costRank',
+        component: () => import('@/views/list/costRank'),
+        meta: { title: '余额排行榜', icon: 'RightArrow' }
+      },
+      {
+        path: 'extensionRank',
+        name: 'extensionRank',
+        component: () => import('@/views/list/extensionRank'),
+        meta: { title: '推广排行榜', icon: 'RightArrow' }
+      }
+    ]
+  },
+  {
+    path: '/affiche',
+    component: Layout,
+    meta: { title: '系统管理', icon: 'System' },
+    children: [
+      {
+        path: 'visitors',
+        name: 'visitors',
+        component: () => import('@/views/visitors/index'),
+        meta: { title: '访客相关', icon: 'RightArrow' }
+      },
+      {
+        path: 'queryCommon',
+        name: 'queryCommon',
+        component: () => import('@/views/queryCommon/index'),
+        meta: { title: '后台配置', icon: 'RightArrow' }
+
+      },
+      {
+        path: 'administrator',
+        name: 'administrator',
+        component: () => import('@/views/administrator/index'),
+        meta: { title: '系统管理员', icon: 'RightArrow' }
+
+      }
+    ]
+  },
+  // {
+  //   path: '/fans',
+  //   component: Layout,
+  //   children: [
+  //     {
+  //       path: 'index',
+  //       name: 'fans',
+  //       component: () => import('@/views/fans/index'),
+  //       meta: { title: '粉丝', icon: 'fans' }
+  //     }
+  //   ]
+  // },
+  // {
+  //   path: '/nested',
+  //   component: Layout,
+  //   redirect: '/nested/menu1',
+  //   name: 'Nested',
+  //   meta: {
+  //     title: 'Nested',
+  //     icon: 'nested'
+  //   },
+  //   children: [
+  //     {
+  //       path: 'menu1',
+  //       component: () => import('@/views/nested/menu1/index'), // Parent router-view
+  //       name: 'Menu1',
+  //       meta: { title: 'Menu1' },
+  //       children: [
+  //         {
+  //           path: 'menu1-1',
+  //           component: () => import('@/views/nested/menu1/menu1-1'),
+  //           name: 'Menu1-1',
+  //           meta: { title: 'Menu1-1' }
+  //         },
+  //         {
+  //           path: 'menu1-2',
+  //           component: () => import('@/views/nested/menu1/menu1-2'),
+  //           name: 'Menu1-2',
+  //           meta: { title: 'Menu1-2' },
+  //           children: [
+  //             {
+  //               path: 'menu1-2-1',
+  //               component: () => import('@/views/nested/menu1/menu1-2/menu1-2-1'),
+  //               name: 'Menu1-2-1',
+  //               meta: { title: 'Menu1-2-1' }
+  //             },
+  //             {
+  //               path: 'menu1-2-2',
+  //               component: () => import('@/views/nested/menu1/menu1-2/menu1-2-2'),
+  //               name: 'Menu1-2-2',
+  //               meta: { title: 'Menu1-2-2' }
+  //             }
+  //           ]
+  //         },
+  //         {
+  //           path: 'menu1-3',
+  //           component: () => import('@/views/nested/menu1/menu1-3'),
+  //           name: 'Menu1-3',
+  //           meta: { title: 'Menu1-3' }
+  //         }
+  //       ]
+  //     },
+  //     {
+  //       path: 'menu2',
+  //       component: () => import('@/views/nested/menu2/index'),
+  //       name: 'Menu2',
+  //       meta: { title: 'menu2' }
+  //     }
+  //   ]
+  // },
+
+  // {
+  //   path: 'external-link',
+  //   component: Layout,
+  //   children: [
+  //     {
+  //       path: 'https://panjiachen.github.io/vue-element-admin-site/#/',
+  //       meta: { title: 'External Link', icon: 'link' }
+  //     }
+  //   ]
+  // },
+
+  // 404 page must be placed at the end !!!
+  { path: '*', redirect: '/404', hidden: true }
+]
+
+const createRouter = () => new Router({
+  // mode: 'history', // require service support
+  scrollBehavior: () => ({ y: 0 }),
+  routes: constantRoutes
+})
+
+const router = createRouter()
+
+// Detail see: https://github.com/vuejs/vue-router/issues/1234#issuecomment-357941465
+export function resetRouter() {
+  const newRouter = createRouter()
+  router.matcher = newRouter.matcher // reset router
+}
+
+export default router

@@ -1,0 +1,26 @@
+import request from '@/utils/request'
+
+// 查询系统管理员
+export function userList(params) {
+  return request({
+    url: '/chat/system/user/list',
+    method: 'GET',
+    params
+  })
+}
+
+export function userAdd(params) {
+  return request({
+    url: '/chat/system/user/add',
+    method: 'POST',
+    params
+  })
+}
+
+export function deleteBatch(params) {
+  return request({
+    url: '/chat/system/user/deleteBatch',
+    method: 'DELETE',
+    params
+  })
+}

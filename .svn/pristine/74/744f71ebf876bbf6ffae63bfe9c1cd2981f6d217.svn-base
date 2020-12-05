@@ -1,0 +1,256 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">评论</div>
+      <div class="header-right">
+        <el-button size="small" type="danger" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" plain size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="用户id">
+        <template slot-scope="scope">{{ scope.row.user }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="被评论的动态">
+        <template slot-scope="scope">{{ scope.row.info }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="评论的类型">
+        <template slot-scope="scope">{{ plies[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="评论内容">
+        <template slot-scope="scope">{{ scope.row.content }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="155px" align="center">
+        <template slot-scope="scope">
+          <el-row :gutter="20">
+            <el-col :span="10">
+              <el-button size="mini" @click="handleClick(scope.row)">查看</el-button>
+            </el-col>
+            <el-col :span="10" size="mini" tyle="margin-top: 5px">
+              <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <!-- 评论 -->
+    <el-dialog :visible.sync="dialogVisible.comments" width="450px" :title="`${mode === 'add' ? '新增' : '编辑'}评论信息`" center style="z-index: 9999">
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="15" />
+          <el-form-item label="用户id">
+            <el-input v-model="form.user" />
+          </el-form-item>
+          <el-form-item label="评论类型">
+            <el-select v-model="form.type" placeholder="请选择">
+              <el-option
+                v-for="(value,key) in plies"
+                :key="key"
+                :label="value"
+                :value="key"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="被评论动态">
+            <el-input v-model="form.info" />
+          </el-form-item>
+          <el-form-item label="内容">
+            <el-input v-model="form.content" />
+          </el-form-item>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.comments=false"
+        >取 消</el-button>
+        <el-button type="primary" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+    <!-- 查看 -->
+    <el-dialog
+      title="评论信息"
+      center
+      :visible.sync="checkVisible"
+      width="680px"
+    >
+      <div class="box">
+        <div class="one">
+          <span>用户id:</span>
+          <el-input v-model="handleRow.user" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>评论类型:</span>
+          <el-input v-model="handleRow.type" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>评论动态:</span>
+          <el-input v-model="handleRow.info" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>内容:</span>
+          <el-input v-model="handleRow.content" :disabled="true" size="mini" />
+        </div>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { commentList, updateComment, deleteBatch } from '@/api/comments'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      form: {
+        user: '', // 用户id
+        type: '', // 评论的类型
+        info: '', // 被评论的动态
+        content: ''// 内容
+      },
+      sels: [],
+      dialogVisible: {
+        comments: false
+      },
+      handleRow: [],
+      checkVisible: false,
+      plies: {
+        1: '动态',
+        2: '评论'
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      }, this.filter)
+      commentList(_form)
+        .then(res => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    //    批量删除
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(array => array.id).join()
+      this.$confirm('确定要删除选中的文件吗?', '提示').then(() => {
+        deleteBatch({
+          ids: ids
+        }).then(data => {
+          this.$message.success(data.message)
+          this.fetchData()
+        })
+      })
+    },
+    // 新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.comments = true
+    },
+    updateSubmit() {
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateComment(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.comments = false
+        this.fetchData()
+      })
+    },
+    // 查看
+    handleClick(row) {
+      this.handleRow = row
+      this.checkVisible = true
+    },
+
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    }
+  }
+}
+
+</script>
+
+<style scoped>
+.header{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .header  .header-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+.header  .header-right{
+    width: 200px;
+}
+
+.box {
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-around;
+  flex-wrap: wrap;
+}
+.one {
+  display: flex;
+
+}
+.one span {
+  width: 100px;
+  text-align: left;
+  height: 40px;
+  line-height: 40px;
+}
+</style>

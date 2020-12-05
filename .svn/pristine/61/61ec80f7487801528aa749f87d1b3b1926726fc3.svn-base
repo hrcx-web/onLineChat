@@ -1,0 +1,273 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.province" clearable placeholder="请输入归属地" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="filter.carrier" clearable placeholder="请输入运营商" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+        </el-form-item>
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">营销短信管理</div>
+      <div class="top-right">
+        <input id="up" ref="file" style="display:none;" type="file" class="form-control" @change="importFile">
+        <!-- <label for="up">
+          <span class="importButton">导入</span>
+        </label> -->
+        <el-button type="success" size="small" @click="importIphone">解析并导入</el-button>
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="excelDow">导出</el-button>
+      </div>
+    </div>
+
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="运营商">
+        <template slot-scope="scope">{{ scope.row.carrier }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="手机号">
+        <template slot-scope="scope">{{ scope.row.phone }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="归属地">
+        <template slot-scope="scope">{{ scope.row.province }}</template>
+      </el-table-column>
+
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog :visible.sync="dialogVisible.Iphone" width="500px" title="导入手机号信息框" center>
+      <el-form ref="form" label-position="right" :validate-on-rule-change="false" label-width="120px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="20">
+            <el-form-item label="手机号">
+              <div class="icon-container" @click="fakeClick('phone')">
+                <el-input
+                  v-model="form.phone"
+                  style="width:100%;height:100%;"
+                  placeholder="一行为一个手机号，仅支持txt文件"
+                />
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="phone" @change="val => uploadFile(val, ['form','phone'])">
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { phoneInfoList, updatePhoneInfo, readFile, deleteBatch, exportXls, importExcel } from '@/api/messages'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+export default {
+  components: {
+    Pagination
+
+  },
+  data() {
+    return {
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      mode: '',
+      dialogVisible: {
+        messages: false,
+        Iphone: false
+      },
+      form: {
+        carrier: '',
+        createTime: '',
+        phone: '',
+        province: ''
+
+      },
+      filter: {
+        province: '',
+        carrier: ''
+      }
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      }, this.filter)
+      phoneInfoList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.imgsFileList = []
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.messages = true
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的营销短信信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+
+    async updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updatePhoneInfo(_form, this.mode).then(res => {
+        // debugger
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.messages = false
+        this.fetchData()
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.messages = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('file', files[0])
+        readFile(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+          this.dialogVisible.Iphone = false
+          this.fetchData()
+        })
+      }
+    },
+    // 导入手机号
+    importIphone() {
+      this.dialogVisible.Iphone = true
+    },
+    // 导出
+    excelDow() {
+      const _forms = Object.assign({
+        carrier: this.filter.carrier,
+        province: this.filter.province
+      }, this.filter)
+      exportXls(_forms).then(res => {
+        const content = res
+        const blob = new Blob([content])
+        const fileName = '导出信息.xlsx'
+        if ('download' in document.createElement('a')) { // 非IE下载
+          const elink = document.createElement('a')
+          elink.download = fileName
+          elink.style.display = 'none'
+          elink.href = URL.createObjectURL(blob)
+          document.body.appendChild(elink)
+          elink.click()
+          URL.revokeObjectURL(elink.href) // 释放URL 对象
+          document.body.removeChild(elink)
+        } else { // IE10+下载
+          navigator.msSaveBlob(blob, fileName)
+        }
+      })
+    },
+    // 导入
+    importFile(e) {
+      // 声明一个FormDate对象
+      const formData = new FormData()
+      // 把文件信息放入对象中
+      formData.append('file', e.target.files[0])
+
+      importExcel(formData).then(res => {
+        // 此处必须将控制导入的input值进行置空，否则不会触发change事件，会导致同一个文件不能二次导入
+        document.getElementById('up').value = null
+        console.log(res)
+        // if (res.data.code === 200) {
+        //   // _this.$message({
+	      //   //    type: 'success',
+	      //   //    message: '导入成功'
+        //   // })
+
+        //   // _this.getList()
+        // } else {
+        //   _this.$message({
+        //     type: 'error',
+        //     message: res.data.msg
+        //   })
+        // }
+      })
+      // .catch(function(error) {
+      //   _this.$message({
+      //     type: 'error',
+      //     message: '导入失败'
+      //   })
+      // })
+    }
+
+  }
+}
+
+</script>
+<style scoped lang="scss">
+
+</style>

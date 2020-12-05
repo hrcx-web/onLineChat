@@ -1,0 +1,1598 @@
+<template>
+  <div class="app-container">
+
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-input v-model="filter.phone" placeholder="请输入手机号" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="filter.user" placeholder="请输入主播名" style="width:140px" />
+        </el-form-item>
+        <el-form-item>
+          <el-input v-model="filter.id" placeholder="请输入主播id" style="width:140px" />
+
+        </el-form-item>
+
+        <el-form-item>
+          <el-select v-model="filter.gender" clearable>
+            <el-option v-for="(value, key) in map.gender" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-select v-model="filter.isRobot" placeholder="机器人选择" clearable>
+            <el-option v-for="(value, key) in map.isRobot" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchDataC" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">主播管理</div>
+      <div class="top-right">
+        <!-- <el-button size="small" :disabled="sels.length === 0" type="success" @click="serviceCharge(sels)">设置服务收费</el-button> -->
+
+        <el-button size="small" :disabled="sels.length === 0" @click="distribution(sels)">分配客服</el-button>
+        <el-button size="small" type="primary" :disabled="sels.length===0" @click="AsClick(sels)"> 抽成比例</el-button>
+        <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="info" size="small" :disabled="sels.length >1" @click="handlVideo(sels)">视频认证</el-button>
+        <el-button size="small" :disabled="sels.length >1" type="warning" @click="making(sels)">声优认证</el-button>
+        <el-button size="small" type="success" :disabled="sels.length >1" @click="disciplinary(sels)">惩戒</el-button>
+
+        <!-- <el-button size="small" type="primary" @click="showDialog('save')">新增</el-button> -->
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="名称">
+        <template slot-scope="scope">
+          <p><span>姓名:</span>{{ scope.row.name }}</p>
+          <p><span>昵称:</span>{{ scope.row.user }}</p>
+          <p><span>短id:</span>{{ scope.row.shortId }}</p>
+          <p><span>星级:</span>{{ scope.row.grade }}</p>
+        </template>
+      </el-table-column>
+      <!-- <el-table-column align="center" label="用户名">
+        <template slot-scope="scope">
+          {{ scope.row.user }}
+          <el-popover
+            v-model="scope.row.visible"
+            placement="top"
+            width="160"
+          >
+            <div>
+              <div style="padding: 6px">
+                用户信息认证审核
+              </div>
+              <el-button size="mini" type="danger" @click="authUserInfo({userId: scope.row.id, status: 2}, scope.row)">驳回</el-button>
+              <el-button type="primary" size="mini" @click="authUserInfo({userId: scope.row.id, status: 1}, scope.row)">通过</el-button>
+            </div>
+            <i slot="reference" class="el-icon-info" />
+          </el-popover>
+        </template>
+      </el-table-column> -->
+      <el-table-column property="icon" align="center" label="头像">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 60px; height: 60px"
+            class="headJig"
+            :src="scope.row.icon"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+
+      <el-table-column align="center" label="手机号">
+        <template slot-scope="scope">{{ scope.row.phone }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="性别/职业/机器人">
+        <template slot-scope="scope">
+          <p>性别:  {{ map.gender[scope.row.gender] }}</p>
+          <p>职业: {{ map.career[scope.row.career] }}</p>
+          <p>机器人:{{ map.isRobot[scope.row.isRobot] }}</p>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="注册时间">
+        <template slot-scope="scope">{{ scope.row.createTime }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="Vip操作">
+        <template slot-scope="scope">
+          <p>  {{ map.isVip[scope.row.isVip] }}</p>
+          <p><el-button type="text" icon="el-icon-edit-outline" @click="showVipDialog(scope.row)" /></p>
+        </template>
+      </el-table-column>
+      <!-- <el-table-column align="center" label="VIP">
+        <template slot-scope="scope">
+          <el-button type="text" icon="el-icon-edit-outline" @click="showVipDialog(scope.row)" />
+        </template>
+      </el-table-column> -->
+      <el-table-column align="center" label="钻石/收益/单价">
+        <template slot-scope="scope">
+          <p><span>钻石余额:</span>{{ scope.row.coinNum }}</p>
+          <p><span>累积收益:</span>{{ scope.row.coinComes }}</p>
+          <p><span>视频单价:</span>{{ scope.row.videoCost }}</p>
+          <p><span>语音单价:</span>{{ scope.row.voiceCost }}</p>
+          <el-popover
+            v-model="scope.row.plusVisible"
+            style="margin-right: 5px"
+            placement="top"
+            width="200"
+          >
+            <div>
+              <el-select v-model="scope.row.changeMoney" clearable size="mini" placeholder="修改数量">
+                <el-option v-for="(value, key) in map.cMeal" :key="key" :value="key" :label="value" />
+              </el-select>
+              <el-input v-model="scope.row.remark" type="textarea" :rows="2" placeholder="操作备注" size="mini" style="margin: 10px 0" />
+            </div>
+            <div style="text-align: right; margin: 0">
+              <el-button size="mini" type="text" @click="scope.row.plusVisible = false">取消</el-button>
+              <el-button type="primary" size="mini" @click="scope.row.plusVisible = false;handleEditCoin(scope.row, '+')">确定</el-button>
+            </div>
+            <el-button slot="reference" size="mini" type="primary" style="padding: 2px" icon="el-icon-plus" />
+          </el-popover>
+          <el-popover
+            v-model="scope.row.minusVisible"
+            placement="top"
+            width="160"
+          >
+            <div>
+              <el-select v-model="scope.row.changeMoney" clearable size="mini" placeholder="修改数量">
+                <el-option v-for="(value, key) in map.cMeal" :key="key" :value="key" :label="value" />
+              </el-select>
+              <el-input v-model="scope.row.remark" type="textarea" :rows="2" placeholder="操作备注" size="mini" style="margin: 10px 0" />
+            </div>
+            <div style="text-align: right; margin: 0">
+              <el-button size="mini" type="text" @click="scope.row.minusVisible = false">取消</el-button>
+              <el-button type="primary" size="mini" @click="scope.row.minusVisible = false;handleEditCoin(scope.row, '-')">确定</el-button>
+            </div>
+            <el-button slot="reference" size="mini" type="primary" style="padding: 2px" icon="el-icon-minus" />
+          </el-popover>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="客服/公会">
+        <template slot-scope="scope">
+          <p><span>客服:</span>{{ map.bind[scope.row.bind] }}</p>
+          <p><span>公会名:</span>{{ scope.row.tradeName }}</p>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="认证状态">
+        <template slot-scope="scope">
+          <p> 提成比例:{{ scope.row.profit }}</p>
+          <p>视频认证:<span :style="{color:(scope.row.isVideo=='1'?'#67C23A':'#000')}">{{ map.isVideo[scope.row.isVideo] }}</span></p>
+          <p>语音认证:<span :style="{color:(scope.row.isVoice=='1'?'#67C23A':'#000')}">{{ map.isVoice[scope.row.isVoice] }}</span></p>
+          <p>接单状态:{{ map.businessStatus[scope.row.businessStatus] }}</p>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="上下级">
+        <template slot-scope="scope">
+          {{ scope.row.disName }}
+          <el-row :gutter="5">
+            <el-col :span="25">
+              <el-button style="width: 100%" size="mini" type="primary" @click="lowerLevel(scope.row)">查看下级</el-button>
+            </el-col>
+          </el-row>
+          <el-row :gutter="5">
+            <el-col :span="25">
+              <el-button style="width: 100%;margin-top:5px" size="mini" type="primary" @click="distributionClik(scope.row)">查看分销</el-button>
+            </el-col>
+          </el-row>
+          <el-row :gutter="5">
+            <el-col :span="25">
+              <el-button style="width: 100%;margin-top:5px" size="mini" type="primary" @click="webUserRatio(scope.row)">查看接单信息</el-button>
+            </el-col>
+          </el-row>
+        </template>
+
+      </el-table-column>
+      <el-table-column label="操作" width="180" align="center">
+        <template slot-scope="scope" class="button">
+          <el-row :gutter="5">
+            <el-col :span="24">
+              <el-button size="mini" style="width:100%" type="primary" @click="showCommunity(scope.row)">发布动态</el-button>
+            </el-col>
+            <el-col :span="10" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" :loading="tableData.loading" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+            </el-col>
+            <el-col :span="14" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="routerChange(scope.row)">查看动态</el-button>
+            </el-col>
+
+            <el-col :span="24" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="addIphone(scope.row)">添加相册集</el-button>
+            </el-col>
+            <el-col :span="24" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="$router.push({path: '/users/collection',query:{userId: scope.row.id}})">收款方式配置</el-button>
+            </el-col>
+            <el-col :span="12" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="SetUplevel('edit',scope.row)">设置星级</el-button>
+            </el-col>
+            <el-col :span="12" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="serviceCharge(scope.row)">编辑单价</el-button>
+            </el-col>
+            <el-col :span="24" style="margin-top: 5px">
+              <el-button style="width: 100%" size="mini" @click="userVideo(scope.row)">主播查看视频</el-button>
+            </el-col>
+          </el-row>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <!-- 用户信息模态框 -->
+    <el-dialog :visible.sync="dialogVisible.user" width="800px" :title="`${mode === 'save' ? '新增' : '编辑'}主播信息`" center style="z-index: 9999">
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="12">
+            <el-form-item label="用户名" prop="user">
+              <el-input v-model="form.user" />
+            </el-form-item>
+            <el-form-item label="手机号" prop="phone">
+              <el-input v-model="form.phone" />
+            </el-form-item>
+            <el-form-item label="头像" prop="icon">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img v-else :src="form.icon" style="width: 100%; height: 100%" alt="">
+              </div>
+            </el-form-item>
+            <el-form-item label="音频">
+              <div class="voice-container" @click="fakeClick('voice')">
+                <i v-if="!form.voice" class="el-icon-plus" />
+                <audio v-else :src="form.voice" style="width: 100%; height: 100%" />
+              </div>
+            </el-form-item>
+            <el-form-item label="性别">
+              <el-select v-model="form.gender" clearable placeholder="请选择">
+                <el-option v-for="(value, key) in map.gender" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="是否已婚">
+              <el-select v-model="form.beMarried" clearable placeholder="请选择">
+                <el-option v-for="(value,key) in map.beMarried" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="生日" prop="birthday">
+              <el-date-picker
+                v-model="form.birthday"
+                type="date"
+                value-format="yyyy-MM-dd"
+                placeholder="选择日期"
+                style="width: 100%;"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="职业" prop="career">
+              <el-select v-model="form.career" clearable placeholder="请选择职业">
+                <el-option v-for="(value, key) in map.career" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="地区">
+              <el-input v-model="form.geography" style="width:210px" /> <el-button class="chooseBtn" @click="choose">请选择</el-button>
+              <v-distpicker v-if="show" class="distapicker" wrapper="width:10px" :province="user.xtrysf" :city="user.xtrycs" :area="user.areax" @selected="onselected" />
+            </el-form-item>
+            <el-form-item label="标签" prop="labels">
+              <el-select v-model="form.labels" multiple placeholder="请选择">
+                <el-option v-for="item in options" :key="item.index" :value="item.value" :label="item.value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="身高" prop="stature">
+              <el-input v-model="form.stature" />
+            </el-form-item>
+            <el-form-item label="微信" prop="weChat">
+              <el-input v-model="form.weChat" />
+            </el-form-item>
+            <el-form-item label="个性签名" prop="weChat">
+              <el-input
+                v-model="form.signature"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4}"
+                placeholder="请输入内容"
+              />
+            </el-form-item>
+            <el-form-item label="注册时间">
+              <el-date-picker
+                v-model="form.time"
+                type="datetime"
+                format="yyyy-MM-dd HH:mm:ss"
+                value-format="yyyy-MM-dd HH:mm:ss"
+                placeholder="选择日期时间"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="voice" @change="val => uploadFile(val, ['form','voice'])">
+      <input type="file" style="visibility: hidden" class="icon" @change="val => uploadFile(val, ['form','icon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.user = false">取 消</el-button>
+        <el-button
+          :loading="tableData.loading"
+          type="primary"
+          size="small"
+          @click="updateSubmit"
+        >提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible.community" width="400px" :title="`发布动态`" center>
+      <el-form label-position="right" label-width="100px" :model="communityForm" size="mini">
+        <el-form-item label="标题">
+          <el-input v-model="communityForm.title" />
+        </el-form-item>
+        <el-form-item label="内容">
+          <el-input v-model="communityForm.content" placeholder="请输入内容" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="communityForm.type" placeholder="请选择">
+            <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="communityForm.type == 1" label="图片">
+          <div class="content-border">
+            <div v-for="item in photoFileList" :key="item.url" class="image-content">
+              <img alt="" style="width:100%;height:100%" :src="item.url">
+            </div>
+            <div class="image-content" @click="fakeClick('photos')">
+              <i class="el-icon-plus" style="position:absolute; top: 50%; left: 50%;transform: translate(-50%, -50%); cursor:pointer" />
+            </div>
+          </div>
+          <input type="file" style="visibility: hidden" class="photos" @change="val => uploadFile(val, null, handlePhotos)">
+        </el-form-item>
+        <el-form-item v-if="communityForm.type == 2" label="视频">
+          <div class="icon-container" @click="fakeClick('upload')">
+            <i v-if="!communityForm.infoUrl" class="el-icon-upload" />
+            <!-- <img v-if="communityForm.infoUrl && communityForm.type == 1" :src="form.infoUrl" style="width: 100%; height: 100%" alt=""> -->
+            <video v-if="communityForm.infoUrl && communityForm.type == 2" :src="form.infoUrl" style="width: 100%; height: 100%" />
+
+          </div>
+        </el-form-item>
+        <el-form-item label="是否点赞">
+          <el-select v-model="communityForm.isLike" placeholder="请选择">
+            <el-option v-for="(value, key) in map.isLike" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="communityForm.label" />
+        </el-form-item>
+        <el-form-item label="点赞数">
+          <el-input v-model="communityForm.likeNum" type="number" min="0" />
+        </el-form-item>
+        <el-form-item label="定位">
+          <el-input v-model="communityForm.position" />
+        </el-form-item>
+        <el-form-item label="发布时间">
+          <el-date-picker
+            v-model="communityForm.createTime"
+            type="datetime"
+            format="yyyy-MM-dd HH:mm:ss"
+            value-format="yyyy-MM-dd HH:mm:ss"
+            placeholder="选择日期时间"
+          />
+        </el-form-item>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="upload" @change="val => uploadFile(val, ['communityForm', 'infoUrl'])">
+
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.community = false">取 消</el-button>
+        <el-button
+          :loading="tableData.loading"
+          type="primary"
+          size="small"
+          @click="submitCommunity"
+        >提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 查看大图 -->
+    <!-- v-if="ifImg(editImg)" -->
+    <el-dialog title="头像展示" center :visible.sync="bigVisible" width="30%">
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+
+    <el-dialog
+      center
+      title="相册集"
+      :visible.sync="photosVisible"
+      width="600px"
+      :modal-append-to-body="false"
+      @close="$refs['uploadPhotos'].clearFiles()"
+    >
+      <el-upload
+        ref="uploadPhotos"
+        :file-list="photoFileList"
+        action="/chat/user/edit"
+        list-type="picture-card"
+        :auto-upload="false"
+        :on-remove="handleRemove"
+      />
+
+      <span slot="footer" class="dialog-footer">
+        <el-button size="small" @click="photosVisible = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="formLoading" @click="updateUserPhotos">确 定</el-button>
+      </span>
+    </el-dialog>
+
+    <el-dialog
+      center
+      title="修改VIP"
+      :visible.sync="vipVisible"
+      width="400px"
+    >
+      <el-form label-position="right" label-width="100px" :model="vipForm" size="mini">
+        <el-form-item label="VIP类型">
+          <el-select v-model="vipForm.vipType" placeholder="请选择">
+            <el-option v-for="(value, key) in map.vipType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="支付类型">
+          <el-select v-model="vipForm.payType" placeholder="请选择">
+            <el-option v-for="(value, key) in map.payType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="操作类型">
+          <el-radio-group v-model="vipForm.type" size="mini">
+            <el-radio-button label="+">增加</el-radio-button>
+            <el-radio-button label="-">减少</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="操作月数">
+          <el-input v-model="vipForm.month" />
+        </el-form-item>
+      </el-form>
+
+      <span slot="footer" class="dialog-footer">
+        <el-button size="small" @click="vipVisible = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="formLoading" @click="updateVip">确 定</el-button>
+      </span>
+    </el-dialog>
+
+    <!-- 客服 -->
+    <el-dialog
+      center
+      title="客服信息"
+      :visible.sync="dialogVisible.customer"
+      width="400px"
+    >
+      <el-form label-position="right" label-width="100px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="20">
+            <el-form-item label="客服列表">
+              <el-select v-model="form.customerId" placeholder="请选择">
+                <el-option v-for="(value, key) in map.customerId" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.customer = false">取 消</el-button>
+        <el-button size="small" type="primary" @click="customerClick">确 定</el-button>
+      </span>
+    </el-dialog>
+    <!-- 编辑单价 -->
+    <el-dialog :visible.sync="dialogVisible.service" width="400px" title="主播钻石单价" center>
+      <el-form label-position="right" label-width="120px" :model="serviceForm" size="mini">
+        <el-form-item label="视频聊天钻石">
+          <el-input v-model="serviceForm.videoCost" />
+        </el-form-item>
+        <el-form-item label="语音钻石">
+          <el-input v-model="serviceForm.voiceCost" />
+        </el-form-item>
+        <!-- <el-form-item label="是否可视频通话">
+          <el-select v-model="serviceForm.isVideo" placeholder="请选择">
+            <el-option v-for="(value, key) in map.isVideo" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="是否可语言">
+          <el-select v-model="serviceForm.isVoice" placeholder="请选择">
+            <el-option v-for="(value, key) in map.isVoice" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item> -->
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.service = false">取 消</el-button>
+        <el-button
+          :loading="tableData.loading"
+          type="primary"
+          size="small"
+          @click="serviceFormChange"
+        >提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 惩戒 -->
+    <el-dialog :visible.sync="dialogVisible.disciplinary" width="460px" title="新增惩戒信息框" center>
+      <el-form ref="disciplinaryForm" :rules="rules" label-position="right" label-width="130px" :model="disciplinaryForm" size="mini">
+        <el-form-item label="用户手机号">
+          <el-input v-model="disciplinaryForm.account" :disabled="true" />
+        </el-form-item>
+        <el-form-item label="操作金额">
+          <el-input v-model="disciplinaryForm.money" type="number" :step="0.1" min="0" />
+        </el-form-item>
+        <el-form-item label="操作类型" prop="type">
+          <el-select v-model="disciplinaryForm.type" placeholder="请选择">
+            <el-option v-for="(value, key) in map.disciplinaryType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="账号类型">
+          <el-select v-model="disciplinaryForm.userType" :disabled="true" placeholder="请选择">
+            <el-option v-for="(value, key) in map.userType" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="操作说明" prop="reason">
+          <el-input
+            v-model="disciplinaryForm.reason"
+            placeholder="请输入操作说明"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 4}"
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input
+            v-model="disciplinaryForm.remark"
+            placeholder="请输入备注"
+            type="textarea"
+            :autosize="{ minRows: 2, maxRows: 4}"
+          />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.disciplinary = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="tableData.loading" @click="disciplinaryClick('disciplinaryForm')">提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 查看下级 -->
+    <el-dialog :visible.sync="dialogVisible.lowerLevel" width="800px" title="下级信息框" center>
+      <el-table
+        v-loading="tableData.loading"
+        :data="tableData.arrays"
+        border
+        fit
+        highlight-current-row
+      >
+        <el-table-column align="center" label="姓名">
+          <template slot-scope="scope">{{ scope.row.name }}</template>
+        </el-table-column>
+        <el-table-column align="center" label="用户名">
+          <template slot-scope="scope">
+            {{ scope.row.user }}
+          </template>
+        </el-table-column>
+        <el-table-column property="icon" align="center" label="头像">
+          <template slot-scope="scope">
+            <el-image
+              style="width: 60px; height: 60px"
+              class="headJig"
+              :src="scope.row.icon"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column align="center" label="手机号">
+          <template slot-scope="scope">{{ scope.row.phone }}</template>
+        </el-table-column>
+        <el-table-column align="center" label="性别/职业">
+          <template slot-scope="scope">
+            <p>性别:  {{ map.gender[scope.row.gender] }}</p>
+            <p>职业: {{ map.career[scope.row.career] }}</p>
+          </template>
+        </el-table-column>
+        <el-table-column align="center" label="注册时间">
+          <template slot-scope="scope">{{ scope.row.createTime }}</template>
+        </el-table-column>
+      </el-table>
+      <pagination
+        :pager-index="pager.pageNo"
+        :pager-size="pager.pageSize"
+        :pager-total="pager.totals"
+        @pagination-change="handlePagerChanges"
+      />
+    </el-dialog>
+    <!-- 设置星级 -->
+    <el-dialog :visible.sync="dialogVisible.SetUplevel" width="500px" title="星级信息框" center>
+      <el-form label-position="right" label-width="130px" :model="SetUplevelForm" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="20">
+            <el-form-item label="设置星级">
+              <el-input v-model="SetUplevelForm.grade" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.SetUplevel = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="tableData.loading" @click="SetUplevelClick">提 交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 抽成比例 -->
+    <el-dialog :visible.sync="dialogVisible.As" width="500px" title="抽成比例信息框" center>
+      <el-form label-position="right" label-width="130px" :model="AsForm" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="20">
+            <el-form-item label="抽成比例">
+              <el-input v-model="AsForm.profit" type="number" :step="0.1" min="0" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.As = false">取 消</el-button>
+        <el-button type="primary" size="small" :loading="tableData.loading" @click="updateSubmitAs">提 交</el-button>
+      </div>
+    </el-dialog>
+    <!-- 查看接单率 -->
+    <el-dialog
+      title="主播接单率信息表"
+      center
+      :visible.sync="dialogVisible.webUserRatio"
+      width="500px"
+    >
+      <div class="header">
+        <el-form inline size="mini">
+          <el-form-item>
+            <el-date-picker
+              v-model="filters.month"
+              type="month"
+              clearable
+              placeholder="选择月"
+              value-format="yyyy-MM"
+              @change="fetchDatax"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-select v-model="filters.type" style="width:180px" @change="fetchDatax">
+              <el-option value="1" label="全部" />
+              <el-option v-for="(value, key) in type" :key="key" :value="key" :label="value" />
+            </el-select>
+          </el-form-item>
+        </el-form>
+      </div>
+      <el-form label-position="right" label-width="130px" :model="arrayx" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="20">
+
+            <el-form-item label="接单数">
+              <el-input v-model="arrayx.totalNum" :disabled="true" />
+            </el-form-item>
+            <el-form-item label="主动挂断数">
+              <el-input v-model="arrayx.InitiativeNum" :disabled="true" />
+            </el-form-item>
+            <el-form-item label="拒接数">
+              <el-input v-model="arrayx.refuseNum" :disabled="true" />
+            </el-form-item>
+            <el-form-item label="接通率">
+              <el-input v-model="ratios" :disabled="true" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+    </el-dialog>
+
+  </div>
+</template>
+
+<script>
+import { query, updateUser, userDelete, uploadQNImg, queryLabelInUse, getUserAuthInfo, bindCustomer, usergetMap, getById, addOrEdit, authUserInfo, warnLogAdd, userQueryById, editProfit, webUserRatio } from '@/api/user'
+import { editCoin, updateVip } from '@/api/order'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { updateCommunity } from '@/api/community'
+import { queryCMealMap } from '@/api/cmeal'
+import Pagination from '@/components/Pagination'
+import VDistpicker from 'v-distpicker'
+
+export default {
+  name: 'Users',
+  components: {
+    Pagination,
+    VDistpicker
+  },
+  data() {
+    return {
+      mode: '',
+      modes: '',
+      formLoading: false,
+
+      filter: {
+        phone: '',
+        user: '',
+        gender: '',
+        isRobot: '',
+        id: ''
+
+      },
+      filters: {
+        type: '1',
+        month: ''
+      },
+      SetUplevelForm: {
+        grade: ''
+      },
+      AsForm: {
+        profit: ''
+      },
+      type: { // 主播接单类型
+        2: '视频',
+        3: '语音'
+      },
+      map: {
+        customerId: {}, // 页面显示的客服
+        cMeal: {},
+        career: {
+          1: '教师',
+          2: '服务员',
+          3: '司机',
+          5: '厨师',
+          4: '理发师',
+          6: '教练',
+          7: '文员',
+          8: '销售经理',
+          9: '客服专员',
+          10: '营业员',
+          11: '网店店长',
+          12: '维修工',
+          13: '快递员',
+          14: '律师',
+          15: '翻译员',
+          16: '会计',
+          17: '医生',
+          18: '工程师',
+          19: '空姐',
+          20: '学生',
+          21: '模特',
+          22: '其它'
+
+        },
+        gender: {
+          1: '男',
+          2: '女'
+        },
+        beMarried: {
+          1: '是',
+          2: '否'
+        },
+        isLike: {
+          1: '是',
+          2: '否'
+        },
+        type: {
+          0: '文字',
+          1: '图片',
+          2: '视频'
+        },
+        // 是否可聊天
+        isChat: {
+          1: '是',
+          2: '否'
+        },
+        // 是否可私信
+        isPriChat: {
+          1: '是',
+          2: '否'
+        },
+        isVip: {
+          1: '是',
+          0: '否'
+        },
+        isVoice: {
+          1: '已认证',
+          0: '未认证'
+        },
+        payType: {
+          1: '支付宝',
+          2: '微信'
+        },
+        vipType: {
+          1: '黄金会员套餐',
+          2: '铂金会员套餐'
+        },
+        isRobot: {
+          1: '是',
+          2: '否'
+        },
+        // 视频
+        isVideo: {
+          1: '已认证',
+          0: '未认证'
+        },
+        bind: {
+          1900: '达达客服1号',
+          124340: '大大客服1号'
+        },
+        userType: {
+          1: '用户',
+          2: '公会'
+        },
+        disciplinaryType: {
+          1: '冻结收益',
+          2: '扣除收益',
+          3: '封号'
+        },
+        // 接单状态
+        businessStatus: {
+          1: '在线',
+          2: '忙碌',
+          3: '离线'
+
+        }
+
+      },
+      photoFileList: [],
+      tableData: {
+        array: [],
+        row: {},
+        loading: false,
+        rows: {}, // 惩戒
+        lowerLevel: '', // 查看下级id
+        arrays: []// 存储下级信息
+
+      },
+      form: {
+        id: '',
+        user: '',
+        phone: '',
+        icon: '',
+        gender: '',
+        beMarried: '',
+        birthday: '',
+        career: '',
+        constellation: '',
+        geography: '',
+        hometown: '',
+        labels: '',
+        stature: '',
+        weChat: '',
+        signature: '',
+        voice: '',
+        time: '',
+        isRobot: '',
+        customerId: ''
+
+      },
+      arrayx: {
+        ratio: '',
+        refuseNum: '',
+        totalNum: ''
+      }, // 接单
+      ratios: '',
+      // 地理
+      user: {
+        xtrysf: '',
+        xtrycs: '',
+        areax: ''
+      },
+      communityForm: {
+        type: '0',
+        content: '',
+        infoUrl: '',
+        isLike: '',
+        label: '',
+        likeNum: '',
+        position: '',
+        title: '',
+        createTime: ''
+      },
+      vipForm: {
+        month: '',
+        type: '',
+        payType: '',
+        remark: '',
+        vipType: ''
+      },
+      // 惩戒
+      disciplinaryForm: {
+        remark: '',
+        reason: '',
+        userType: '',
+        type: '',
+        money: '',
+        account: ''
+
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        pageNoC: 1,
+        pageSizeC: 10,
+        total: 0,
+        totals: 0// 下级总数
+      },
+      dialogVisible: {
+        user: false,
+        community: false,
+        customer: false,
+        service: false,
+        Show: false,
+        disciplinary: false,
+        lowerLevel: false, // 查看下级
+        SetUplevel: false,
+        webUserRatio: false,
+        As: false
+      },
+      combined: { // 传查看接单率
+        userId: ''
+
+      },
+      dirRow: [], // 编辑
+      sels: [], // 复选框
+      // handVisible: false,
+      vipVisible: false,
+      // handleRow: {}, // 查看详情
+      bigVisible: false,
+      editImg: [], // 接受头像值
+      photosVisible: false,
+      dialogImageUrl: '',
+      ImageUrlVisible: false,
+      show: false,
+      serviceForm: {
+        // isVideo: '',
+        // isVoice: '',
+        videoCost: '',
+        voiceCost: ''
+      },
+      option: {
+        1: [],
+        2: []
+      },
+      idse: [], // 存储分配的选择机器人id
+      idsAs: {}, // 抽成比例ids
+      photos: [], // 存储多图
+      rules: {
+        type: [
+          { required: true, message: '请选择操作类型', trigger: 'blur' }
+
+        ],
+        reason: [
+          { required: true, message: '请输入操作说明', trigger: 'blur' }
+
+        ]
+
+      }
+    }
+  },
+  computed: {
+    options() {
+      return this.form.gender === '1' ? this.option[1] : this.option[2]
+    }
+
+  },
+
+  created() {
+    this.usergetMap()// 获取客服
+    this.queryCMealMap()
+    this.fetchData()
+    queryLabelInUse().then(res => {
+      this.option[2] = res.result.labels4Lady
+      this.option[1] = res.result.labels4Man
+    })
+  },
+  methods: {
+    queryCMealMap() {
+      queryCMealMap().then(res => {
+        const { result } = res
+        if (Array.isArray(result)) {
+          result.forEach(item => {
+            const _keys = Object.keys(item)
+            _keys.forEach(key => {
+              this.map.cMeal[key] = item[key]
+            })
+          })
+        }
+      })
+    },
+    getUserAuthInfo(userId) {
+      getUserAuthInfo({ userId }).then(res => {
+      })
+    },
+    authUserInfo(data, item) {
+      authUserInfo(data).then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+        item.visible = false
+      })
+    },
+    showVipDialog(item) {
+      this.tableData.row = item
+      initForm(this.vipForm)
+      this.vipVisible = true
+    },
+    updateVip() {
+      this.formLoading = true
+      const _form = Object.assign({ userId: this.tableData.row.id }, this.vipForm)
+      updateVip(_form).then(res => {
+        this.$message.success(res.message)
+        this.vipVisible = false
+      }).finally(_ => {
+        this.formLoading = false
+      })
+    },
+    handleEditCoin(item, type) {
+      const _form = {
+        type,
+        id: item.changeMoney,
+        userId: item.id,
+        remark: item.remark
+      }
+      editCoin(_form).then(res => {
+        this.$message.success(res.message)
+        item.changeMoney = ''
+        item.remark = ''
+      })
+    },
+    routerChange(row) {
+      this.$router.push({ path: '/users/community', query: { id: row.id }})
+    },
+    // 视频配置
+    userVideo(row) {
+      this.$router.push({ path: '/users/userVideo', query: { id: row.id }})
+    },
+    showCommunity(row) {
+      this.photoFileList = []
+      this.tableData.row = row
+      this.communityForm = initForm(this.communityForm, ['type'])
+      this.dialogVisible.community = true
+    },
+    submitCommunity() {
+      this.tableData.loading = true
+      const _form = Object.assign({ user: this.tableData.row.id }, this.communityForm)
+      if (_form.type === '1') {
+        const selectedPhotos = this.photoFileList.map(item => item.url)
+        _form.infoUrl = selectedPhotos.join(',')
+      }
+      updateCommunity(_form, 'add').then(res => {
+        this.tableData.loading = false
+        this.$message.success(res.message)
+        this.dialogVisible.community = false
+      }).catch(error => {
+        console.log(error)
+        this.dialogVisible.community = false
+        this.tableData.loading = false
+      })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    // 点击编辑新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.tableData.loading = true
+        userQueryById({ id: item.id }).then(res => {
+          this.form = res.result
+          this.form = copyObject(this.form, item, { numberToString: true })
+          if (this.form.beMarried) {
+            this.form.beMarried = this.form.beMarried.toString()
+          }
+          if (this.form.labels && mode === 'edit') {
+            this.form.labels = this.form.labels.split('.')
+          }
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+      }
+      this.dialogVisible.user = true
+    },
+
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      if (Array.isArray(_form.labels)) {
+        _form.labels = _form.labels.join(',')
+      }
+      updateUser(_form, this.mode).then(res => {
+        // debugger
+
+        this.$message.success(res.message)
+        this.dialogVisible.user = false
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    async uploadPhotos() {
+      const files = this.$refs['uploadPhotos'].uploadFiles.map(item => item.raw)
+      const photos = []
+      for (let i = 0; i < files.length; i++) {
+        if (!files[i]) continue
+        const formData = new FormData()
+        formData.append('multipartFile', files[i])
+        const res = await uploadQNImg(formData)
+        photos.push(res.data)
+      }
+
+      return photos
+    },
+    async updateUserPhotos() {
+      this.formLoading = true
+      const photos = await this.uploadPhotos()
+      const successPhotos = this.photoFileList.map(item => item.url)
+      const _form = {
+        id: this.tableData.row.id,
+        photos: successPhotos.concat(photos).join(',')
+      }
+      updateUser(_form, 'edit').then(res => {
+        this.$message.success(res.message)
+        this.fetchData()
+        this.photosVisible = false
+      }).finally(_ => {
+        this.formLoading = false
+      })
+    },
+    handleRemove(file, fileList) {
+      this.photoFileList.splice(file)
+    },
+    uploadFile(e, target, func) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          if (func) {
+            func(res)
+          } else {
+            this[target[0]][target[1]] = res.data
+          }
+        })
+      }
+    },
+    handlePhotos(res) {
+      this.photoFileList.push({
+        url: res.data
+      })
+    },
+
+    uploadFiles(e) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          this.dirRow.icon = res.data
+        })
+      }
+    },
+    fetchDataC() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNoC, // 页数
+        pageSize: this.pager.pageSizeC, // 条数
+        isChat: 1
+      }, this.filter)
+      query(_form)
+        .then((res) => {
+          const { result = {}} = res
+          // console.log(result)
+          // result.records[0].time = '2020-08-28 19:08:52'
+          if (Array.isArray(result.records)) {
+            result.records.forEach(item => {
+              item.plusVisible = false
+              item.minusVisible = false
+              item.changeMoney = ''
+              item.visible = false
+              if (item.coinCome) {
+                item.coinComes = item.coinCome / 100 + '元'
+              }
+            })
+          }
+          this.tableData.array = result.records
+          // console.log(this.tableData.array)
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize, // 条数
+        isChat: 1
+      }, this.filter)
+      query(_form)
+        .then((res) => {
+          const { result = {}} = res
+          // console.log(result)
+          // result.records[0].time = '2020-08-28 19:08:52'
+          if (Array.isArray(result.records)) {
+            result.records.forEach(item => {
+              item.plusVisible = false
+              item.minusVisible = false
+              item.changeMoney = ''
+              item.visible = false
+              if (item.coinCome) {
+                item.coinComes = item.coinCome / 100 + '元'
+              }
+            })
+          }
+          this.tableData.array = result.records
+          // console.log(this.tableData.array)
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    // 省市区选择
+    choose() {
+      this.show = !this.show
+    },
+    onselected(data) {
+      this.form.geography = data.province.value + '|' + data.city.value + '|' + data.area.value
+      this.show = false
+    },
+    // 头像
+    changeImg(row) {
+      this.bigVisible = true
+      this.editImg = row
+    },
+    // 复选框的操作
+    selsChange(sels) {
+      this.sels = sels
+    },
+    // 批量删除
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((rowd) => rowd.id).join(',')
+      this.$confirm('确定要删除选中的主播信息吗?', '提示')
+        .then(() => {
+          userDelete({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    addIphone(row) {
+      const { photos = '' } = row
+      const photoList = photos && photos.split(',') || []
+      const _array = []
+      photoList.forEach(item => {
+        _array.push({ url: item })
+      })
+      this.photoFileList = _array
+      this.photosVisible = true
+      this.tableData.row = row
+    },
+    // 分配客服
+    distribution() {
+      this.dialogVisible.customer = true
+      this.idse = this.sels.map((row) => row.id).join(',')
+    },
+    // 获取客服
+    usergetMap() {
+      usergetMap()
+        .then(res => {
+          if (Array.isArray(res.result)) {
+            res.result.forEach(item => {
+              const _keys = Object.keys(item)
+              _keys.forEach(key => {
+                this.map.customerId[key] = item[key]
+              })
+            })
+          }
+        })
+    },
+    // 点击确定
+    customerClick() {
+      this.tableData.loading = true
+      const _Form = Object.assign({
+        customerId: this.form.customerId,
+        ids: this.idse
+      })
+      bindCustomer(_Form).then(res => {
+        // console.log(res)
+
+        this.dialogVisible.customer = false
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 抽成比例
+    AsClick() {
+      this.dialogVisible.As = true
+      this.idsAs = this.sels.map((row) => row.id).join(',')
+    },
+    // 抽成提交
+    updateSubmitAs() {
+      this.tableData.loading = true
+      const _form = Object.assign({ ids: this.idsAs }, this.AsForm)
+
+      editProfit(_form).then(res => {
+        this.dialogVisible.As = false
+        this.$message.success(res.message)
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 编辑单价
+    serviceCharge(row) {
+      this.dialogVisible.service = true
+      this.serviceForm = initForm(this.serviceForm)
+      // this.tableData.row = row || {}
+      this.serviceForm.videoCost = row.videoCost
+      this.serviceForm.voiceCost = row.voiceCost
+      // getById({ id: row.id }).then(res => {
+      //   if (res.result) {
+      //     this.serviceForm = res.result
+      //   }
+      // }).catch(error => {
+      //   console.log(error)
+      // })
+    },
+    serviceFormChange() {
+      this.tableData.loading = true
+      const _serviceForm = Object.assign({
+        videoCost: this.serviceForm.videoCost,
+        voiceCost: this.serviceForm.voiceCost
+      })
+      addOrEdit(_serviceForm).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.service = false
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 声优认证
+    making() {
+      if (this.sels.length === 0) {
+        this.$message('请选择一个主播')
+      } else {
+        const idses = this.sels.map((row) => row.id).join(',')
+        this.$confirm('确定进行该操作吗?', '提示').then(() => {
+          authUserInfo({
+            status: 1,
+            type: 4,
+            userId: idses
+          }).then(res => {
+            this.$message.success(res.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+      }
+    },
+    // 视频认证
+    handlVideo() {
+      if (this.sels.length === 0) {
+        this.$message('请选择一个主播')
+      } else {
+        const idses = this.sels.map((row) => row.id).join(',')
+        this.$confirm('确定进行该操作吗?', '提示').then(() => {
+          authUserInfo({
+            status: 1,
+            type: 5,
+            userId: idses
+          }).then(res => {
+            this.$message.success(res.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+      }
+    },
+    // 查看下级
+    lowerLevel(item) {
+      this.tableData.lowerLevel = item.id
+      this.dialogVisible.lowerLevel = true
+      this.fetchData2()
+    },
+    fetchData2() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize, // 条数
+        disId: this.tableData.lowerLevel
+
+      })
+      query(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.arrays = result.records
+          this.pager.totals = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    handlePagerChanges(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData2()
+    },
+
+    // 查看分销
+    distributionClik(item) {
+      this.$router.push({ path: '/order/distributorL', query: { id: item.id }})
+    },
+    // 惩戒
+    disciplinary() {
+      if (this.sels.length === 0) {
+        this.$message('请选择一个主播')
+      } else {
+        this.disciplinaryForm = initForm(this.disciplinaryForm)
+        const idses = this.sels.map((row) => row.phone).join(',')
+        this.disciplinaryForm.account = idses
+
+        this.disciplinaryForm.userType = '1'
+        this.dialogVisible.disciplinary = true
+      }
+    },
+    disciplinaryClick(formName) {
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          let _disciplinaryForm = Object.assign({ account: this.disciplinaryForm.account }, this.disciplinaryForm)
+          _disciplinaryForm = clearEmptyItem(_disciplinaryForm)
+          warnLogAdd(_disciplinaryForm).then(res => {
+            // debugger
+
+            this.tableData.loading = false
+            this.$message.success(res.message)
+            this.dialogVisible.disciplinary = false
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+            this.dialogVisible.disciplinary = false
+            this.tableData.loading = false
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    // 设置星级
+    SetUplevel(mode, row) {
+      this.mode = mode
+      this.dialogVisible.SetUplevel = true
+      this.SetUplevelForm = initForm(this.SetUplevelForm)
+      this.tableData.row = row || {}
+    },
+    SetUplevelClick() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.SetUplevelForm)
+      _form = clearEmptyItem(_form)
+      updateUser(_form, this.mode).then(res => {
+        this.dialogVisible.SetUplevel = false
+        this.$message.success(res.message)
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 点击查看接单
+    webUserRatio(item) {
+      this.dialogVisible.webUserRatio = true
+      this.combined.userId = item.id
+      this.fetchDatax()
+    },
+    // 接单查询
+    fetchDatax() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        userId: this.combined.userId
+      }, this.filters)
+      webUserRatio(_form).then(res => {
+        const { result = {}} = res
+        this.arrayx = result
+        if (result.ratio) {
+          this.ratios = result.ratio * 100 + '%'
+        }
+        // this.pager.totalx = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    }
+  }
+}
+</script>
+<style scoped lang="scss">
+.headJig:hover {
+  cursor: pointer;
+}
+.el-input {
+  background: content-box;
+}
+
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.voice-container{
+      width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+   .el-icon-plus{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+.content-border{
+  width: 100%;
+  height: 120px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  padding: 5px;
+  overflow-y: auto;
+}
+.image-content{
+  width: 50px;
+  height: 50px;
+  margin-right: 5px;
+  position: relative;
+  display: inline-block;
+}
+.image-selected::after{
+  content: '✔';
+  position: absolute;
+  right: 0;
+  top: 0;
+  border-radius: 50%;
+  background: green;
+  color: #fff;
+  display: block;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+}
+
+// 地区选择
+.chooseBtn{
+   position: relative;
+     left: 210px;
+   top: -30px;
+   border: none;
+}
+.distapicker{
+    margin-top: -20px;
+}
+</style>

@@ -1,0 +1,28 @@
+import request from '@/utils/request'
+// 机器人查询
+export function robotPushList(params) {
+  return request({
+    url: '/chat/robotPush/list',
+    method: 'GET',
+    params
+  })
+}
+// 新增编辑
+export function updateRobotPush(data, type) {
+  return request({
+    url: `/chat/robotPush/${type}`,
+    contentType: 'x-www-form-urlencoded',
+    method: type === 'edit' ? 'POST' : 'POST',
+    data
+  })
+}
+
+// 获取所有渠道
+export function getMap(params) {
+  return request({
+    url: `/chat/distributorInfo/getMap`,
+    method: 'GET',
+    params
+  })
+}
+

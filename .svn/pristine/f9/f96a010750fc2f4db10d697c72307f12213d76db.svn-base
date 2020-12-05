@@ -1,0 +1,299 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">房间管理</div>
+      <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length===0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+      <el-table-column align="center" label="会议id">
+        <template slot-scope="scope">{{ scope.row.conferenceId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="房间名">
+        <template slot-scope="scope">{{ scope.row.name }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="房号">
+        <template slot-scope="scope">{{ scope.row.chatRoomId }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="房间封面">
+        <template slot-scope="scope">
+          <el-image
+            :src="scope.row.logo"
+            style="width: 80px; height: 80px;cursor: pointer;"
+            alt=""
+            @click="changeImg(scope.row)"
+          /></template>
+      </el-table-column>
+      <el-table-column align="center" label="标签类型">
+        <template slot-scope="scope">{{ map.labelType[scope.row.labelType] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="房间限制">
+        <template slot-scope="scope">{{ map.astrict[scope.row.astrict] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="房间热度">
+        <template slot-scope="scope">{{ scope.row.hot }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="公告">
+        <template slot-scope="scope">{{ scope.row.notice }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="150px" align="center">
+        <template slot-scope="scope" class="button">
+          <el-button size="mini" @click="showDialog('edit', scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog :visible.sync="dialogVisible.room" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}房间信息`" center style="z-index: 9999">
+      <el-form label-position="right" label-width="160px" :model="form" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="用户id">
+              <el-input v-model="form.id" />
+            </el-form-item>
+            <el-form-item label="房间名">
+              <el-input v-model="form.name" />
+            </el-form-item>
+            <el-form-item label="房间封面">
+              <div class="icon-container" @click="fackClick('logo')">
+                <i v-if="!form.logo" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.logo"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="房间背景图">
+              <div class="icon-container" @click="fackClick('backImg')">
+                <i v-if="!form.backImg" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.backImg"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="标签类型">
+              <el-select v-model="form.labelType" placeholder="请选择">
+                <el-option v-for="(value, key) in map.labelType" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="房间限制">
+              <el-select v-model="form.astrict" placeholder="请选择">
+                <el-option v-for="(value, key) in map.astrict" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="房间公告">
+              <el-input
+                v-model="form.notice"
+                type="textarea"
+                :autosize="{ minRows: 2, maxRows: 4}"
+                placeholder="请输入内容"
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="logo" @change="val=>uploadFile(val,['form','logo'])">
+      <input type="file" style="visibility: hidden" class="backImg" @change="val=>uploadFile(val,['form','backImg'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.room=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 大头像 -->
+    <el-dialog
+      title="房间封面展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.logo" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { deleteBatch, roomList, updateRoom } from '@/api/room'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+import { uploadQNImg } from '@/api/user'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      sels: [],
+      form: {
+        id: '',
+        name: '',
+        logo: '',
+        labelType: '',
+        astrict: '',
+        notice: '',
+        backImg: ''
+
+      },
+      dialogVisible: {
+        room: false,
+        imgVisible: false
+      },
+      editImg: {},
+
+      map: {
+        labelType: {
+          1: '热门',
+          2: '女友',
+          3: '男友',
+          4: '陪玩',
+          5: '扩列',
+          6: '交友',
+          7: '电台'
+        },
+        astrict: {
+          0: '所有人可进入',
+          1: '限男性进入',
+          2: '限女性进入',
+          3: '限会员进入',
+          4: '限同公会成员进入'
+        }
+      }
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+  methods: {
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+
+      })
+      roomList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.room = true
+    },
+    updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateRoom(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.room = false
+        this.fetchData()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map(row => row.id).join(',')
+      this.$confirm('确定要删除选中的房间信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then(data => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        }).catch(error => {
+          console.log(error)
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    fackClick(className) {
+      const inputfiles = document.querySelector(`input[type=file].${className}`)
+      inputfiles.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+        })
+      }
+    },
+    // 页面显示的大图标
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    }
+  }
+}
+
+</script>
+<style scoped lang="scss">
+.icon-container{
+   width: 80px;
+   height: 80px;
+   border: 1px  dashed #ccc;
+   position: relative;
+   cursor: pointer;
+   border-radius: 5px;
+   i{
+       position: absolute;
+       top:50%;
+       left:50%;
+       transform: translate(-50%,-50%);
+        display: block;
+        font-size: 24px;
+   }
+}
+</style>

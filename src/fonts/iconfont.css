@@ -1,0 +1,25 @@
+@font-face {font-family: "chat";
+  src: url('iconfont.eot?t=1599641809728'); /* IE9 */
+  src: url('iconfont.eot?t=1599641809728#iefix') format('embedded-opentype'), /* IE6-IE8 */
+  url('data:application/x-font-woff2;charset=utf-8;base64,d09GMgABAAAAAATUAAsAAAAACXgAAASFAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHEIGVgCDBgqHEIVhATYCJAMMCwgABCAFhD0HNxv4B1FUTVJkH4XjXglRllhMUYpyefyb/+CN4Gv5rd/M7F7IUd0JeVc+JHISBvcLhwLhkOgo8QgXfdZIaod/T3vdHIzMSROd1pvTZNZBE3Ew/6g/7qcuSifwQODHItoig9aIEYlFtBtIAfKYtsjuCNKy9xPoNGs/2r6TRwAQUxjDAvGEx8GBWEqhVDBDu7gG5hbxUqU9PU+XAC/858dfeiFGUmXG2IN7jkxg88Ob4pzftFxxCfDhdOAWkbENKMQ10HCBYMjb9gWdkECoOrhWhDSUtWmgmMqrzT88kiBqhqCbUNfdiR/AxmJhMWYdNX5xj9foB2IHiIcD+NFhqChicFFLuhXG342qK+toyMdBVVX51TB8sLagJgCqjFXB1QFPoWYtgTX8w+7cMlm4E+C2wYTy+3edvXvwtiPGvXUOKtbShDvupAvX3g2+fVte6E5lhiUKSPGjpw6VRw8ODkAxkQyulW4KQQl1S9uhqf1yfepBvaqKgxq1Cg2dk6tnT59fVq5vC6nqqlSg97So1vYe7B/6LMXAKlC/p7s56rTr7dsBQ9cMqvqU65uUquS6h5u9yXWXbu2lL9y5exfu3lGr2Di4y5lEa7mrPXk3+OB0fzMAnbSVESRkQIhbHwXIzA0N4YKbxik1M1N9clX18tWKvYq1vRRhOjWUoR8P0pA0kY81UghTuFQi6MFj4TSRD2GIzweftL8JLJ5pFaZoXN4Te1CgkJFhj7MHDH06rnypYpoJJZ5lMVwEseACJqJI7QUpvmufjs7ElOMARyUYBGNPDjhGI7d1MTQGuYUMjgPsIgJnDdCZP/Zf8d+YmxQMS7mujv1T0q/f3PZU4Snc/MT2/MaMuKRUICI9xL7yO1BbX042Pm3z9UittdehyINVizmj2D2DqYjRafJL2qXR7h+tN3KOyB4g9s+LjxxH3LT2de721l3zuG+l67erwIRynx6JnvqN2wqsG84aaLjL+9vo7F0fEnM59n37txwf6TLIe/t6pLHCEznvpdfySt5K2sQaWtn5DWIfxAbbhU6Ejj+CPuwLLbzr9355z0xeOK8Hx2nNl7iTPanhynRgA6D5X2g5/Wmv8fnkJ+9oSYt/YnAB33Pnr/uy5lmz9BbaJRrj/1VAoYHLVtlYmQvE5xNFyd7oeGsynaaVhmEZ9KS7ZOTdeUIxEkPSZgKyYp5YqMtQ6bIOtWIXOm0xXtxlCJ2gKB3YRCEI7V5B0us1ZO0+EAv1I1RGnYZau+/Q6czLNbushmmnPcHCSRYTo2dgPEZSItvqTkIMLk76sThUPE5IqN0tiEXweUmJmK6WTtLrzEpkEV0m8FM5eiTJxthEUgLm1PowVnx8EpZMJMWyGKQWlySTzbS12dCdtBhJCQCyh8CCI7EwYegyYHgYkiRiu6EkyG3cBjw/PpeDEg9HAGxfF4SFDXy8LrEYXVp0KojOgsTKolN15kvFoYdEYtNBbIQkCTBOk+tY4k1XEkwynBiLhYGkRdAOjmRmtGkldlOB1iZECfeRB5dhbJkjRY6iekqxmJQwg0vF8wAAAAAA') format('woff2'),
+  url('iconfont.woff?t=1599641809728') format('woff'),
+  url('iconfont.ttf?t=1599641809728') format('truetype'), /* chrome, firefox, opera, Safari, Android, iOS 4.2+ */
+  url('iconfont.svg?t=1599641809728#chat') format('svg'); /* iOS 4.1- */
+}
+
+.chat {
+  font-family: "chat" !important;
+  font-size: 16px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.chat-yuedu:before {
+  content: "\e684";
+}
+
+.chat-chuli:before {
+  content: "\e600";
+}
+

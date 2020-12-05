@@ -1,0 +1,399 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">礼物管理</div>
+      <div class="header-right">
+        <el-button type="success" class="add" plain @click="giftAdd">添加</el-button>
+        <el-button :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button></div>
+    </div>
+
+    <el-table
+      v-loading="listLoading"
+      :data="list"
+      element-loading-text="Loading"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column type="selection" width="55" />
+
+      <el-table-column align="center" label="ID" width="95">
+        <template slot-scope="scope">{{ scope.row.id }}</template>
+      </el-table-column>
+      <el-table-column label="图标" align="center">
+        <!-- <el-image style="width: 100px; height: 100px" class="headJig" :src="scope.row.icon"></el-image> -->
+        <template slot-scope="scope">{{ scope.row.icon }}</template>
+      </el-table-column>
+      <el-table-column label="介绍" width="110" align="center">
+        <template slot-scope="scope">
+          <span>{{ scope.row.letter }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="价值" width="110" align="center">
+        <template slot-scope="scope">{{ scope.row.cost }}</template>
+      </el-table-column>
+      <el-table-column class-name="status-col" label="Status" width="110" align="center">
+        <template slot-scope="scope">
+          <el-tag :type="scope.row.status | statusFilter">{{ scope.row.status }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" prop="created_at" label="时间" width="200">
+        <template>
+          <i class="el-icon-time" />
+          <span>{{ times }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="200" align="center">
+        <template slot-scope="scope">
+          <el-button size="mini" @click="handleEdit(scope.$index, scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <el-pagination
+      :current-page="pageNo"
+      :page-sizes="[10, 20, 30, 40]"
+      :page-size="pageSize"
+      layout="total, sizes, prev, pager, next, jumper"
+      :total="total"
+      @size-change="handleSizeChange"
+      @current-change="change"
+      @prev-click="pre"
+      @next-click="nex"
+    />
+    <!-- 弹出框编辑 -->
+    <el-dialog :visible.sync="dialogVisible" width="30%">
+      <el-form :label-position="labelPosition" label-width="100px" :model="rowd">
+        <el-form-item label="ID" prop="id">
+          <el-input v-model="rowd.id" />
+        </el-form-item>
+        <el-form-item label="图标地址" prop="icon">
+          <!-- 上传图片 -->
+
+          <!-- <el-upload
+            class="upload-demo"
+            ref="upload"
+            action="/dev-api/chat/user/uploadQNImg"
+            :on-preview="handlePreview"
+            :on-remove="handleRemove"
+            :file-list="fileList"
+            :headers="{
+              'X-Access-Token': token
+          }"
+            :auto-upload="false"
+            :on-success="success"
+          >
+            <el-button slot="trigger" size="small" type="primary">选择图片</el-button>
+            <el-button
+              style="margin-left: 10px;"
+              size="small"
+              type="success"
+              @click="submitUpload"
+            >上传图片</el-button>
+          </el-upload>-->
+
+          <input type="file" @change="uploadFile" v-html="rowd.icon">
+        </el-form-item>
+
+        <el-form-item label="价值" prop="cost">
+          <el-input v-model="rowd.cost" />
+        </el-form-item>
+        <el-form-item label="介绍" prop="letter">
+          <el-input v-model="rowd.letter" />
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="hide">取 消</el-button>
+        <el-button type="primary" @click="sure">保存</el-button>
+      </span>
+    </el-dialog>
+    <!-- 新增 -->
+    <el-dialog :visible.sync="newVisible" width="30%">
+      <el-form
+        ref="ruleForm"
+        :rules="rules"
+        :label-position="labelPosition"
+        label-width="100px"
+        :model="Form"
+      >
+        <el-form-item label="图标地址" prop="icon">
+          <input type="file" @change="uploadFile" v-html="rowd.icon">
+        </el-form-item>
+        <el-form-item label="价值" prop="cost">
+          <el-input v-model="Form.cost" />
+        </el-form-item>
+        <el-form-item label="介绍" prop="letter">
+          <el-input v-model="Form.letter" />
+        </el-form-item>
+      </el-form>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="hideNew">取 消</el-button>
+        <el-button type="primary" @click="changeNew">新增</el-button>
+      </span>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { add } from '@/api/table'
+import { getList } from '@/api/table'
+import { getDelete } from '@/api/table'
+import { getS } from '@/api/table'
+import { uploadQNImg } from '@/api/user'
+
+// import formats from "qs/lib/formats";
+export default {
+  // computed: {
+  //   token() {
+  //     return getToken();
+  //   },
+  // },
+  filters: {
+    statusFilter(status) {
+      const statusMap = {
+        published: 'success',
+        draft: 'gray',
+        deleted: 'danger'
+      }
+      return statusMap[status]
+    }
+  },
+
+  data() {
+    return {
+      // 上传图片
+      multipartFile: '', // 图片地址
+      fileList: [],
+
+      labelPosition: 'right', // 右对齐
+      index: 0,
+      Form: {
+        icon: '',
+        cost: '',
+        letter: '',
+        time: ''
+      },
+      rules: {
+        id: [{ required: true, message: '请输入ID', trigger: 'blur' }],
+        icon: [{ required: true, message: '请选择图片', trigger: 'change' }],
+        cost: [{ required: true, message: '请输入价值', trigger: 'blur' }],
+        letter: [{ required: true, message: '请输入介绍', trigger: 'blur' }]
+      },
+      sels: [], // 选中的值显示
+      dialogVisible: false, // 模态默认隐藏
+      newVisible: false,
+      rowd: [], // 存编辑的数据
+      list: null,
+      listLoading: true,
+      pageNo: 1,
+      pageSize: 5,
+      total: 1,
+      times: [] // 处理的时间
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+
+  methods: {
+    uploadFile(e) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then((res) => {
+          this.rowd.icon = res.data
+        })
+      }
+    },
+
+    // submitUpload() {
+    //   this.$refs.upload.submit();
+    // },
+    // handleRemove(file, fileList) {
+    //   console.log(file, fileList);
+    // },
+    // handlePreview(file) {
+    //   console.log(file);
+    // },
+    // success(Response) {
+    //   const formData = new FormData();
+    //   formData.append("id", this.rowd.id);
+    //   formData.append("multipartFile", Response);
+    //   uploadQNImg(formData).then((data) => {
+    //     if (data.code == 200) {
+    //       window.location.reload;
+    //     }
+    //   });
+    // },
+
+    // 复选框的操作
+    selsChange(sels) {
+      this.sels = sels
+    },
+    // 批量删除
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((list) => list.id).join()
+      this.$confirm('确定要删除选中的文件吗?', '提示')
+        .then(() => {
+          getDelete({
+            ids: ids
+          }).then((data) => {
+            if (data.code === 200) {
+              this.fetchData()
+              console.log(data.success)
+            }
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 点击添加
+    giftAdd() {
+      this.newVisible = true
+      this.Form = {}
+    },
+    // 点击新增
+    changeNew() {
+      // const formData = new FormData();
+      // formData.append("icon", this.Form.icon);
+      // formData.append("cost", this.Form.cost);
+      // formData.append("letter", this.Form.letter);
+      // formData.append("time", this.Form.time);
+      // debugger;
+      add({
+        icon: this.Form.icon,
+        cost: this.Form.cost,
+        letter: this.Form.letter,
+        time: this.Form.time
+      })
+        .then((data) => {
+          if (data.code === 200) {
+            this.fetchData()
+            this.newVisible = false
+            this.fetchData()
+            console.log(data.success)
+          }
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 编辑取消
+    hide() {
+      this.dialogVisible = false
+    },
+    hideNew() {
+      this.newVisible = false
+    },
+    // 保存
+    sure() {
+      getS({
+        id: this.rowd.id,
+        icon: this.rowd.icon,
+        cost: this.rowd.cost,
+        letter: this.rowd.letter,
+        time: this.times
+      })
+        .then((data) => {
+          if (data.code === 200) {
+            this.dialogVisible = false
+            this.fetchData()
+            // console.log(data.success)
+          }
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 编辑
+    handleEdit(index, row) {
+      // console.log(index, row)
+      this.dialogVisible = true
+      this.rowd = row
+    },
+
+    // 获取数据
+    fetchData() {
+      this.listLoading = false
+      getList({
+        pageNo: this.pageNo,
+        pageSize: this.pageSize
+      })
+        .then((data) => {
+          this.listLoading = false
+          console.log(data)
+          if (data.status === 200) {
+            this.list = data.rows
+            console.log(this.list)
+            const lists = this.list
+            for (let i = 0; i < lists.length; i++) {
+              this.times = lists[i].time
+              const Time = this.times || ''
+              this.times = Time.substring(0, 10)
+            }
+            this.total = data.total // 总数
+          }
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 上一页
+    pre() {
+      this.pageNo--
+      if (this.pageNo < 1) {
+        this.pageNo = 1
+      }
+      this.fetchData()
+    },
+    // 下一页
+    nex() {
+      this.pageNo++
+
+      if (this.pageNo >= this.total) {
+        this.pageNo = this.total
+      }
+      this.fetchData()
+    },
+    // 点击
+    change(currentPage) {
+      this.pageNo = currentPage
+      this.fetchData()
+    },
+    handleSizeChange(val) {
+      this.pageSize = val
+      this.handleCurrentChange(this.pageNo)
+      this.fetchData()
+    }
+  }
+}
+</script>
+<style  scoped>
+.header{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .header  .header-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+.header  .header-right{
+    width: 200px;
+}
+/* .headJig:hover {
+  cursor: pointer;
+} */
+
+.el-table {
+  width: 100%;
+}
+.dialog-footer {
+  margin-right: 150px;
+}
+</style>

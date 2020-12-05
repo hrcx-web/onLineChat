@@ -1,0 +1,383 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <div class="header-left">礼物管理</div>
+      <div class="header-right">
+        <el-button type="danger" size="small" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" class="add" size="small" plain @click="showDialog('add')">新增</el-button>
+
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      element-loading-text="Loading"
+      border
+      fit
+      style="width: 100%"
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <!-- 复选框 -->
+      <el-table-column align="center" type="selection" />
+      <el-table-column label="介绍" align="center">
+        <template slot-scope="scope">
+          <span>{{ scope.row.letter }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="是否启用">
+        <template slot-scope="scope">{{ piles[scope.row.isInUse] }}</template>
+      </el-table-column>
+      <el-table-column label="小图标" align="center">
+        <template slot-scope="scope">
+          <el-image
+            style="width:80px;height:80px"
+            class="headimg"
+            :src="scope.row.icon"
+            @click="changeImg(scope.row, 'icon')"
+          />
+
+        </template>
+      </el-table-column>
+      <el-table-column label="大图标" align="center">
+        <template slot-scope="scope">
+          <el-image
+            style="width:80px;height:80px"
+            class="headimg"
+            :src="scope.row.bigIcon"
+            @click="changeImg(scope.row, 'bigIcon')"
+          />
+
+        </template>
+      </el-table-column>
+
+      <el-table-column label="价值" align="center">
+        <template slot-scope="scope">{{ scope.row.cost }}</template>
+      </el-table-column>
+      <el-table-column label="操作" align="center">
+        <template slot-scope="scope">
+          <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <!-- 礼物 -->
+    <el-dialog :visible.sync="dialogVisible.gift" width="450px" :title="`${mode === 'add' ? '新增' : '编辑'}礼物信息`" center style="z-index: 9999">
+      <el-form
+        ref="form"
+        :rules="rules"
+        label-position="right"
+        label-width="100px"
+        :model="form"
+        size="mini"
+      >
+        <el-row :gutter="10">
+          <el-col :span="20">
+            <el-form-item label="小图标">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.icon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="大图标">
+              <div class="icon-container" @click="fakeClick('bigIcon')">
+                <i v-if="!form.bigIcon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.bigIcon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="价值" prop="cost">
+              <el-input v-model="form.cost" />
+            </el-form-item>
+            <el-form-item label="是否启用" prop="isInUse">
+              <el-select v-model="form.isInUse" placeholder="请选择">
+                <el-option v-for="(value, key) in piles" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="介绍" prop="letter">
+              <el-input v-model="form.letter" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="icon" @change="val => uploadFile(val, ['form','icon'])">
+      <input type="file" style="visibility: hidden" class="bigIcon" @change="val => uploadFile(val, ['form','bigIcon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button size="small" @click="dialogVisible.gift=false">取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit('form')">提交</el-button>
+      </div>
+    </el-dialog>
+    <!-- 查看详情 -->
+    <el-dialog
+      title="礼物信息"
+      center
+      :visible.sync="checkVisible"
+      width="500px"
+    >
+      <div class="box">
+        <div class="one">
+          <span>价值:</span>
+          <el-input v-model="handleRow.cost" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>图标:</span>
+          <el-input v-model="handleRow.icon" :disabled="true" size="mini" />
+        </div>
+
+        <div class="one">
+          <span>是否启用:</span>
+          <el-input v-model="piles[handleRow.isInUse]" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>描述:</span>
+          <el-input v-model="handleRow.letter" :disabled="true" size="mini" />
+        </div>
+        <div class="one">
+          <span>创建时间:</span>
+          <el-input v-model="handleRow.time" :disabled="true" size="mini" />
+        </div>
+      </div>
+    </el-dialog>
+    <!-- 大头像 -->
+
+    <el-dialog
+      title="图标展示"
+      center
+      :visible.sync="imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { giftAdd, getList, getDelete, uploadGiftSource } from '@/api/table'
+// import { uploadQNImg } from '@/api/user'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import Pagination from '@/components/Pagination'
+// import formats from "qs/lib/formats";
+export default {
+  components: {
+    Pagination
+  },
+
+  data() {
+    return {
+      mode: '',
+      tableData: {
+        array: [],
+        row: {},
+        loading: false
+      },
+
+      piles: {
+        1: '是',
+        2: '否'
+      },
+      // 上传图片
+      index: 0,
+      form: {
+        icon: '',
+        bigIcon: '',
+        cost: '',
+        letter: '',
+        isInUse: ''
+      },
+      dialogVisible: {
+        gift: false
+
+      },
+      checkVisible: false,
+      editImg: '', // 大头像
+      imgVisible: false, // 头像的框
+      // 分页的
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0
+      },
+      rules: {
+        // icon: [{ required: true, message: '请选择图片', trigger: 'change' }],
+        cost: [{ required: true, message: '请输入价值', trigger: 'blur' }],
+        letter: [{ required: true, message: '请输入介绍', trigger: 'blur' }]
+
+      },
+      sels: [], // 选中的值显示
+      handleRow: [], // 查看
+      rowd: [] // 存编辑的数据
+
+    }
+  },
+  created() {
+    this.fetchData()
+  },
+
+  methods: {
+    // 图标的操作
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('file', files[0])
+        uploadGiftSource(formData).then((res) => {
+          this[target[0]][target[1]] = res.data || res.result
+        })
+      }
+    },
+    // 复选框的操作
+    selsChange(sels) {
+      this.sels = sels
+    },
+    // 批量删除
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((list) => list.id).join()
+      this.$confirm('确定要删除选中的文件吗?', '提示')
+        .then(() => {
+          getDelete({
+            ids: ids
+          }).then((data) => {
+            if (data.code === 200) {
+              this.fetchData()
+              console.log(data.success)
+            }
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 点击新增
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.gift = true
+    },
+    updateSubmit(formName) {
+      this.$refs[formName].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+          _form = clearEmptyItem(_form)
+          giftAdd(_form, this.mode).then(res => {
+            // debugger
+            this.tableData.loading = false
+            this.$message.success(res.message)
+            this.dialogVisible.gift = false
+            this.fetchData()
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    // 获取数据
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize // 条数
+      }, this.filter)
+      getList(_form)
+        .then((res) => {
+          // console.log(res.total)
+          this.tableData.array = res.rows
+          this.pager.total = res.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    // 查看
+    handleClick(row) {
+      this.handleRow = row
+      this.checkVisible = true
+    },
+    // 新增的图片操作
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    // 页面显示的大图标
+    changeImg(row, icon) {
+      this.imgVisible = true
+      this.editImg = row[icon]
+    }
+  }
+}
+</script>
+<style  scoped lang="scss">
+.header{
+    width: 100%;
+    height: 60px;
+    line-height: 60px;
+    display: flex;
+}
+ .header  .header-left{
+    flex: 1;
+    font-weight: 500;
+    font-size:20px ;
+}
+
+/* c查看闲情 */
+.one {
+  display: flex;
+
+}
+.one span {
+  width: 100px;
+  text-align: left;
+  height: 40px;
+  line-height: 40px;
+}
+.el-input {
+  background: content-box;
+}
+/* 新增图标 */
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+}
+.handle{
+  padding: 8px 10px;
+}
+.headimg{
+  cursor: pointer;
+}
+</style>
