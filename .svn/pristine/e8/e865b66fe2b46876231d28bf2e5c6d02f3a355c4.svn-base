@@ -1,0 +1,412 @@
+<template>
+  <div class="app-container">
+    <div class="top">
+      <div class="top-left">
+        爵位信息管理
+      </div>
+      <div class="top-right">
+        <el-button type="danger" size="small" :disabled="sels.length === 0" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+        <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+      </div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column type="selection" align="center" />
+
+      <el-table-column align="center" label="图片">
+        <template slot-scope="scope">
+          <el-image
+            style="width: 80px; height: 80px;cursor: pointer;"
+            :src="scope.row.logo"
+            @click="changeImg(scope.row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column label="svga图" align="center">
+        <template slot-scope="scope">
+          <div v-if="scope.row.bigIconIsSvga" :id="'tag-' + scope.row.id" style="width: 80px; height: 80px;margin:0 auto;" />
+          <el-image
+            v-else
+            class="headimg"
+            style="width: 80px;height: 80px;"
+            :src="scope.row.svgLogo"
+            @click="changeImg(scope.row, 'svgLogo')"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column align="center" label="描述">
+        <template slot-scope="scope">{{ scope.row.msg }}</template>
+      </el-table-column>
+      <el-table-column align="center" width="130px" label="拥有的权益数量">
+        <template slot-scope="scope">{{ scope.row.legalNum }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="爵位类型">
+        <template slot-scope="scope">{{ map.type[scope.row.type] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="首月价格">
+        <template slot-scope="scope">{{ scope.row.firstPrice }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="续费价">
+        <template slot-scope="scope">{{ scope.row.renewPrice }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="签到赠送钻石数">
+        <template slot-scope="scope">{{ scope.row.signCoin }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="有效期值">
+        <template slot-scope="scope">{{ scope.row.value }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="有效期单位">
+        <template slot-scope="scope">{{ map.unit[scope.row.unit] }}</template>
+      </el-table-column>
+
+      <el-table-column align="center" label="是否默认选中">
+        <template slot-scope="scope">{{ map.defaultSelect[scope.row.defaultSelect] }}</template>
+      </el-table-column>
+      <el-table-column align="center" label="备注">
+        <template slot-scope="scope">{{ scope.row.remark }}</template>
+      </el-table-column>
+      <el-table-column label="操作" align="center">
+        <template slot-scope="scope" class="button">
+          <el-button
+            style="width: 100%"
+            size="mini"
+            @click="showDialog('edit', scope.row)"
+          >编辑</el-button>
+          <el-button
+            size="mini"
+            type="primary"
+            @click="handllegal(scope.row)"
+          >查看权益</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <el-dialog :visible.sync="dialogVisible.rank" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}爵位信息`" center style="z-index: 9999">
+      <el-form ref="form" :model="form" :validate-on-rule-change="false" :rules="rules" label-position="right" label-width="120px" size="mini">
+        <el-row :gutter="10">
+          <el-col :span="22">
+            <el-form-item label="图片">
+              <div class="icon-container" @click="fakeClick('logo')">
+                <i v-if="!form.logo" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.logo"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="svga图片">
+              <div class="icon-container" @click="fakeClick('svgLogo')">
+                <i v-if="!form.svgLogo" class="el-icon-plus" />
+                <div v-else style="width: 100%; height: 100%">
+                  <div id="test" style="width: 100%; height: 100%" />
+                </div>
+              </div>
+
+            </el-form-item>
+            <el-form-item label="描述">
+              <el-input v-model="form.msg" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" placeholder="请输入描述" />
+            </el-form-item>
+            <!-- <el-form-item label="拥有的权益数量">
+              <el-input v-model="form.legalNum" type="number" min="0" />
+            </el-form-item> -->
+            <el-form-item label="爵位类型">
+              <el-select v-model="form.type" clearable placeholder="请选择">
+                <el-option v-for="(value, key) in map.type" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="首月价格">
+              <el-input v-model="form.firstPrice" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="续费价">
+              <el-input v-model="form.renewPrice" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="签到赠送钻石数">
+              <el-input v-model="form.signCoin" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="有效期值">
+              <el-input v-model="form.value" />
+            </el-form-item>
+            <el-form-item label="有效期单位" prop="unit">
+              <el-select v-model="form.unit" placeholder="请选择单位">
+                <el-option v-for="(value, key) in map.unit" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" placeholder="请输入备注" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="logo" @change="val=>uploadFile(val,['form','logo'])">
+      <input type="file" style="visibility: hidden" class="svgLogo" @change="val => uploadFiles(val, ['form','svgLogo'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.rank=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit('form')">提交</el-button>
+      </div>
+    </el-dialog>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <!-- 大图片-->
+    <el-dialog
+      title="图片展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.logo" />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { rankList, updateRank, deleteBatch } from '@/api/theTitle'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { uploadQNImg } from '@/api/user'
+import Pagination from '@/components/Pagination'
+import SVGA from 'svgaplayerweb'
+import { uploadGiftSource } from '@/api/table'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      rules: {
+        unit: [
+          { required: true, message: '请选择一个单位', trigger: 'blur' }
+
+        ]
+      },
+      tableData: {
+        array: [],
+        loading: false,
+        row: {}
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10
+      },
+      dialogVisible: {
+        rank: false,
+        imgVisible: false
+      },
+      editImg: [], // 大头像
+      form: {
+        remark: '',
+        value: '',
+        unit: '',
+        // renewNum: '',
+        // firstNum: '',
+        renewPrice: '',
+        firstPrice: '',
+        type: '',
+        logo: '',
+        msg: '',
+        // legalNum: '',
+        defaultSelect: '',
+        signCoin: '',
+        svgLogo: '',
+        bigIconIsSvga: ''// svga字段类型
+
+      },
+      map: {
+        type: {
+          1: '骑士',
+          2: '子爵',
+          3: '侯爵',
+          4: '公爵',
+          5: '国王',
+          6: '皇帝'
+        },
+        defaultSelect: {
+          1: '是',
+          0: '否'
+        },
+        unit: {
+          1: '年',
+          2: '月',
+          3: '日'
+        }
+      },
+      mode: '',
+      sels: [],
+      isSvga: false
+
+    }
+  }, created() {
+    this.fetchData()
+  }, methods: {
+
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo,
+        pageSize: this.pager.pageSize
+      })
+      rankList(_form).then(res => {
+        const { result = {}} = res
+        this.tableData.array = result.records
+        this.pager.total = result.total
+        this.$nextTick(_ => {
+          if (Array.isArray(result.records)) {
+            result.records.forEach(item => {
+              if (item.bigIconIsSvga === 1) {
+                this.handleSVGA(`#tag-${item.id}`, item.svgLogo)
+              }
+            })
+          }
+        })
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+        this.isSvga = !!item.bigIconIsSvga
+        if (this.isSvga) {
+          this.$nextTick(_ => {
+            this.handleSVGA('#test', item.svgLogo)
+          })
+        }
+      }
+      this.dialogVisible.rank = true
+    },
+    updateSubmit(form) {
+      this.$refs[form].validate((valid) => {
+        if (valid) {
+          this.tableData.loading = true
+          let _form = Object.assign({ id: this.tableData.row.id }, this.form)
+          _form = clearEmptyItem(_form)
+          updateRank(_form, this.mode).then(res => {
+            this.tableData.loading = false
+            this.$message.success(res.message)
+            this.dialogVisible.rank = false
+            this.fetchData()
+          }).catch(error => {
+            console.log(error)
+            this.dialogVisible.rank = false
+            this.tableData.loading = false
+          })
+        } else {
+          console.log('error submit!!')
+          return false
+        }
+      })
+    },
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+          this.$message.success(res.message)
+        })
+      }
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的爵位信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.fetchData()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    },
+    // 查看权益
+    handllegal(row) {
+      this.$router.push({ path: '/theTitle/legal', query: { id: row.id }})
+    },
+    handleSVGA(domTag, url) {
+      if (!domTag || !url) return
+      const parser = new SVGA.Parser(domTag)
+      debugger
+      const player = new SVGA.Player(domTag)
+      parser.load(url, function(videoItem) {
+        player.setVideoItem(videoItem)
+        player.startAnimation()
+      })
+    },
+    uploadFiles(e, target) {
+      const files = e.target.files
+      const isSvga = /.(svga)$/.test(files[0].name)
+      console.log(isSvga)
+      this.isSvga = isSvga
+      if (files.length) {
+        this.tableData.loading = true
+        const formData = new FormData()
+        formData.append('file', files[0])
+        formData.append('bigIconIsSvga', isSvga ? 1 : 0)
+        this.form.bigIconIsSvga = isSvga ? 1 : 0
+        uploadGiftSource(formData).then((res) => {
+          this[target[0]][target[1]] = res.data || res.result
+          if (isSvga) this.handleSVGA('#test', res.data || res.result)
+          this.$message.success(res.message)
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+      }
+    }
+
+  }
+}
+
+</script>
+<style scoped  lang="scss">
+.icon-container{
+    width: 80px;
+    height: 80px;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+    position: relative;
+      cursor: pointer;
+    i{
+        display: block;
+        position: absolute;
+        font-size: 24px;
+        top:50%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+    }
+}
+</style>

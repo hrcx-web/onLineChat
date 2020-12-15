@@ -1,0 +1,405 @@
+<template>
+  <div class="app-container">
+    <div class="header">
+      <el-form inline size="mini">
+        <el-form-item>
+          <el-date-picker
+            v-model="filter.time"
+            align="right"
+            :editable="false"
+            clearable
+            unlink-panels
+            value-format="yyyy-MM-dd"
+            type="daterange"
+            range-separator="至"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+          />
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchData" />
+        <el-form-item>
+          <el-select v-model="filters.channel" placeholder="渠道选择" clearable>
+            <el-option v-for="(value, key) in map.channel" :key="key" :value="key" :label="value" />
+          </el-select>
+        </el-form-item>
+        <el-button type="primary" size="mini" icon="el-icon-search" @click="fetchDataChannel" />
+      </el-form>
+    </div>
+    <div class="top">
+      <div class="top-left">渠道商转化分析</div>
+    </div>
+    <el-table
+      v-loading="tableData.loading"
+      :data="tableData.array"
+      border
+      fit
+      highlight-current-row
+      @selection-change="selsChange"
+    >
+      <el-table-column
+        align="center"
+        prop="countTime"
+        label="日期"
+      />
+      <el-table-column
+        align="center"
+        prop="platform_name"
+        label="平台名称"
+      />
+      <el-table-column
+        align="center"
+        prop="pv"
+        label="pv"
+      />
+      <el-table-column
+        align="center"
+        prop="uv"
+        label="uv"
+      />
+      <el-table-column
+        align="center"
+        prop="registerNum"
+        label="注册数"
+      />
+      <el-table-column
+        align="center"
+        prop="loginNum"
+        label="登录数"
+      />
+      <el-table-column
+        align="center"
+        prop="payPeopleNum"
+        label="付费人数"
+      />
+      <el-table-column
+        align="center"
+        prop="payNum"
+        label="付费次数"
+      />
+      <el-table-column
+        align="center"
+        prop="repeatNum"
+        label="重复付费人数"
+      />
+
+      <el-table-column
+        align="center"
+        prop="price"
+        label="单价"
+      />
+      <el-table-column
+        align="center"
+        prop="settleType"
+        label="结算方式"
+      >
+        <template slot-scope="scope">
+          {{ map.settleType[scope.row.settleType] }}
+        </template>
+      </el-table-column>
+      <el-table-column
+        align="center"
+        prop="settleType"
+        label="结算金额"
+      >
+        <!-- downloadCount -->
+        <template slot-scope="scope">
+          <span v-if="scope.row.settleType == 1">{{ multiplication(scope.row.uv, scope.row.price) }}</span>
+          <span v-if="scope.row.settleType == 2">{{ multiplication(scope.row.registerNum, scope.row.price) }}</span>
+          <span v-if="scope.row.settleType == 3">{{ multiplication(scope.row.payNum, scope.row.price) }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" align="center">
+        <template slot-scope="scope" class="button">
+          <el-button size="mini" @click="orderclick(scope.row)">查看详情</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+    <pagination
+      :pager-size="pager.pageSize"
+      :pager-index="pager.pageNo"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+
+    <el-dialog
+      center
+      :visible.sync="dialogVisible.orderclick"
+      width="1100px"
+      title="渠道商转化分析详情页"
+    >
+      <el-table
+        v-loading="tableData.loading"
+
+        :data="tableData.arrayx"
+        border
+        fit
+        highlight-current-row
+      >
+        <el-table-column align="center" label="短id">
+          <template slot-scope="scope">{{ scope.row.shortId }}</template>
+        </el-table-column>
+        <el-table-column align="center" label="充值金额">
+          <template slot-scope="scope">{{ scope.row.money }}</template>
+        </el-table-column>
+        <el-table-column align="center" label="充值时间">
+          <template slot-scope="scope">{{ scope.row.createTime }}</template>
+        </el-table-column>
+        <el-table-column align="center" label="注册时间">
+          <template slot-scope="scope">{{ scope.row.regiestTime }}</template>
+        </el-table-column>
+
+      </el-table>
+      <pagination
+        :pager-index="pager.pageNox"
+        :pager-size="pager.pageSizex"
+        :pager-total="pager.totalx"
+        @pagination-change="handlePagerChangex"
+      />
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import Pagination from '@/components/Pagination'
+import { queryDistributorTransformInfo, orderRechargeDetail } from '@/api/distributor'
+import { initForm, copyObject, multiplication } from '@/utils/index'
+import { getMap } from '@/api/robot'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+
+      multiplication,
+      mode: '',
+      dialogVisible: {
+        info: false,
+        orderclick: false
+      },
+      multipleTable: [],
+      filter: {
+        time: []
+
+      },
+      filters: {
+        channel: ''
+      },
+      map: {
+        channel: {},
+        distributeType: {
+          1: '平台外包',
+          2: '用户分销',
+          3: '自来客'
+        },
+        settleType: {
+          1: 'uv',
+          2: 'cpa',
+          3: 'cps'
+        },
+        status: {
+          1: '启用',
+          2: '停用',
+          3: '拉黑'
+        }
+
+      },
+      tableData: {
+        array: [],
+        row: {},
+        loading: false,
+        arrayx: []
+      },
+      form: {
+        // platformName: '',
+        distributeType: '',
+        price: '',
+        // resetValue: '',
+        settleType: '',
+        sysUserId: '',
+        time: []
+
+        // threshold: '',
+        // url: ''
+      },
+      countTime: {}, // 存储查询日期
+      distributorId: {}, // 渠道id
+      formLoading: false,
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        pageNox: 1,
+        pageSizex: 10,
+        totalx: 0
+      }
+
+    }
+  },
+  created() {
+    this.getNowTime()
+    this.getMap()
+    this.fetchDataTime()
+  },
+  methods: {
+
+    fetchDataChannel() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize, // 条数
+        flag: 0, // 系统管理员可见
+        distributorId: this.filters.channel
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.clickTimeBegin = _form.time[0]
+        _form.clickTimeEnd = _form.time[1]
+        if (_form.clickTimeBegin === _form.clickTimeEnd) {
+          _form.clickTimeBegin = _form.time[0] + ' ' + '00:00:00'
+          _form.clickTimeEnd = _form.time[1] + ' ' + '23:59:59'
+        }
+      }
+      delete _form.time
+      queryDistributorTransformInfo(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          // console.log(this.tableData.array)
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    getNowTime() {
+      var date = new Date()
+      var yyyy = date.getFullYear()
+      var MM = date.getMonth() + 1 < 10 ? '0' + (date.getMonth() + 1) : date.getMonth() + 1
+      var dd = date.getDate() < 10 ? '0' + date.getDate() : date.getDate()
+      const time1 = yyyy + '-' + MM + '-' + dd
+      const time2 = yyyy + '-' + MM + '-' + dd
+      this.filter.time = [time1, time2]
+    },
+    selsChange(sels) {
+      this.multipleTable = sels
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.fetchData()
+    },
+
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.info = true
+    },
+    // 查询默认时间的
+    fetchDataTime() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize, // 条数
+        time: this.filter.time,
+        flag: 0// 系统管理员可见
+      })
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.clickTimeBegin = _form.time[0]
+        _form.clickTimeEnd = _form.time[1]
+        if (_form.clickTimeBegin === _form.clickTimeEnd) {
+          _form.clickTimeBegin = _form.time[0] + ' ' + '00:00:00'
+          _form.clickTimeEnd = _form.time[1] + ' ' + '23:59:59'
+        }
+      }
+      delete _form.time
+      queryDistributorTransformInfo(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          // console.log(this.tableData.array)
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    // 查询时间
+    fetchData() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize, // 条数
+        flag: 0// 系统管理员可见
+      }, this.filter)
+      if (Array.isArray(_form.time) && _form.time.length === 2) {
+        _form.clickTimeBegin = _form.time[0]
+        _form.clickTimeEnd = _form.time[1]
+        if (_form.clickTimeBegin === _form.clickTimeEnd) {
+          _form.clickTimeBegin = _form.time[0] + ' ' + '00:00:00'
+          _form.clickTimeEnd = _form.time[1] + ' ' + '23:59:59'
+        }
+      }
+      delete _form.time
+      queryDistributorTransformInfo(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    // 获取所有渠道
+    getMap() {
+      this.tableData.loading = true
+      getMap().then(res => {
+        const { result } = res
+        if (Array.isArray(result)) {
+          this.map.channel = Object.assign(...result)
+        }
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    orderclick(row) {
+      this.dialogVisible.orderclick = true
+      this.tableData.loading = true
+      this.countTime = row.countTime
+      this.distributorId = row.id
+      this.fetchDatax()
+    },
+    // 详情页分页
+    handlePagerChangex(val) {
+      this.pager.pageNox = val.index
+      this.pager.pageSizex = val.size
+      this.fetchDatax()
+    },
+    fetchDatax() {
+      orderRechargeDetail({
+        time: this.countTime,
+        distributorId: this.distributorId,
+        pageNo: this.pager.pageNox, // 页数
+        pageSize: this.pager.pageSizex // 条数
+
+      }).then(res => {
+        const { result } = res
+        if (Array.isArray(result.records)) {
+          result.records.forEach(item => {
+            item.money = item.money / 100
+          })
+        }
+        this.tableData.arrayx = result.records
+        // console.log(this.tableData.array)
+        this.pager.totalx = result.total // 总数
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    }
+  }
+}
+</script>
+
+<style lang="scss">
+</style>

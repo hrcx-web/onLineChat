@@ -1,0 +1,618 @@
+<template>
+  <div class="app-container">
+
+    <div class="top">
+      <div class="top-left">任务配置</div>
+
+    </div>
+    <el-tabs v-model="activeName" @tab-click="handleClick">
+      <el-tab-pane :key="'first'" label="签到任务" name="first">
+        <div style="float: right;">
+          <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteFileOrDirectory(sels)">批量删除</el-button>
+          <el-button type="primary" size="small" @click="showDialog('add')">新增</el-button>
+        </div>
+
+        <el-table
+          v-loading="tableData.loading"
+          :data="tableData.array"
+          border
+          fit
+          highlight-current-row
+          @selection-change="selsChange"
+        >
+          <!-- 复选框 -->
+          <el-table-column type="selection" align="center" />
+          <el-table-column align="center" label="展示图标">
+            <template slot-scope="scope">
+              <el-image
+                style="width: 80px; height: 80px;cursor: pointer;"
+                :src="scope.row.icon"
+                @click="changeImg(scope.row)"
+              /></template>
+          </el-table-column>
+          <el-table-column align="center" label="签到日期">
+            <template slot-scope="scope">{{ map.day[scope.row.day] }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="获得奖励要达到的任务数量">
+            <template slot-scope="scope">{{ scope.row.num }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="签到任务每天的额奖励类型">
+            <template slot-scope="scope">{{ map.dayType[scope.row.dayType] }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="签到任务奖励的钻石数">
+            <template slot-scope="scope">{{ scope.row.coin }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="任务说明">
+            <template slot-scope="scope">{{ scope.row.info }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="160px" align="center">
+            <template slot-scope="scope">
+              <el-row :gutter="10">
+                <el-col :span="10" size="mini">
+                  <el-button size="mini" @click="showDialog('edit' ,scope.row)">编辑</el-button>
+                </el-col>
+                <el-col :span="10" size="mini">
+                  <el-button v-if="scope.row.dayType===2||scope.row.dayType===3" size="mini" type="primary" @click="lookClick(scope.row)">查看奖品</el-button>
+                </el-col>
+              </el-row>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+      <el-tab-pane :key="'second'" label="每日任务" name="second">
+        <div style="float:right">
+          <el-button size="small" :disabled="sels.length === 0" type="danger" @click="deleteSecond(sels)">批量删除</el-button>
+          <el-button type="primary" size="small" @click="show('add')">新增</el-button>
+        </div>
+
+        <el-table
+          v-loading="tableData.loading"
+          :data="tableData.array"
+          border
+          fit
+          highlight-current-row
+          @selection-change="selsChange"
+        >
+          <!-- 复选框 -->
+          <el-table-column type="selection" align="center" />
+          <el-table-column align="center" label="展示图标">
+            <template slot-scope="scope">
+              <el-image
+                style="width: 80px; height: 80px;cursor: pointer;"
+                :src="scope.row.icon"
+                @click="changeImg(scope.row)"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column align="center" label="获得奖励要达到的任务数量">
+            <template slot-scope="scope">{{ scope.row.num }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="每日任务类型">
+            <template slot-scope="scope">{{ map.sonType[scope.row.sonType] }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="每日任务奖励的钻石数">
+            <template slot-scope="scope">{{ scope.row.coin }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="任务说明">
+            <template slot-scope="scope">{{ scope.row.info }}</template>
+          </el-table-column>
+          <el-table-column align="center" label="启用状态">
+            <template slot-scope="scope">
+              <el-switch
+                v-model="scope.row.code"
+                active-text="启用"
+                inactive-text="停用"
+                :active-value="1"
+                :inactive-value="0"
+                @change="val => handleSwitch(val, scope.row.id)"
+              /></template>
+          </el-table-column>
+          <el-table-column label="操作" width="120px" align="center">
+            <template slot-scope="scope">
+              <el-row :gutter="10">
+                <el-col :span="10" size="mini" style="margin-top: 5px">
+                  <el-button size="mini" @click="show('edit' ,scope.row)">编辑</el-button>
+                </el-col>
+              </el-row>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-tab-pane>
+    </el-tabs>
+    <pagination
+      :pager-index="pager.pageNo"
+      :pager-size="pager.pageSize"
+      :pager-total="pager.total"
+      @pagination-change="handlePagerChange"
+    />
+    <!-- 签到任务 -->
+    <el-dialog :visible.sync="dialogVisible.allocation" width="500px" :title="`${mode === 'add' ? '新增' : '编辑'}签到任务信息`" center>
+      <el-form ref="form" label-position="right" :validate-on-rule-change="false" label-width="180px" :model="form" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="20">
+            <el-form-item label="任务图标">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.icon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="签到日期">
+              <el-select v-model="form.day" :disabled="true&&mode==='edit'" placeholder="请选择">
+                <el-option v-for="(value,key) in map.day" :key="key" :value="key" :label="`第${value}天`" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="签到任务每天的额奖励类型">
+              <el-select v-model="form.dayType" placeholder="请选择">
+                <el-option v-for="(value,key) in map.dayType" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="form.dayType==1" label="签到任务奖励的钻石数">
+              <el-input v-model="form.coin" type="number" :step="0.1" min="0" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="icon" @change="val => uploadFiles(val, ['form','icon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.allocation=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmit">提交</el-button>
+      </div>
+    </el-dialog>
+    <!-- 每日任务 -->
+    <el-dialog :visible.sync="dialogVisible.sonType" width="550px" :title="`${mode === 'add' ? '新增' : '编辑'}每日任务信息`" center>
+      <el-form ref="form" label-position="right" :validate-on-rule-change="false" label-width="180px" :model="form" size="mini">
+        <el-row :gutter="5">
+          <el-col :span="20">
+            <el-form-item label="任务图标">
+              <div class="icon-container" @click="fakeClick('icon')">
+                <i v-if="!form.icon" class="el-icon-plus" />
+                <img
+                  v-else
+                  :src="form.icon"
+                  style="width: 100%; height: 100%"
+                  alt=""
+                >
+              </div>
+            </el-form-item>
+            <el-form-item label="获得奖励要达到的任务数量">
+              <el-input v-model="form.num" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="每日任务奖励的钻石数">
+              <el-input v-model="form.coin" type="number" :step="0.1" min="0" />
+            </el-form-item>
+            <el-form-item label="每日任务类型">
+              <el-select v-model="form.sonType" :disabled="true&&mode==='edit'" placeholder="请选择">
+                <el-option v-for="(value,key) in map.sonType" :key="key" :value="key" :label="value" />
+              </el-select>
+            </el-form-item>
+            <el-form-item v-if="form.sonType==='2'" label="礼物">
+              <div @click="handlShow">
+                <i class="el-icon-plus" style="cursor: pointer;" />
+              </div>
+            </el-form-item>
+
+            <el-form-item label="钻石说明">
+              <el-input v-model="form.coinInfo" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" placeholder="请输入任务说明" />
+            </el-form-item>
+            <el-form-item label="任务标题">
+              <el-input v-model="form.title" />
+            </el-form-item>
+
+            <el-form-item label="未完成提示语">
+              <el-input v-model="form.failedWord" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" placeholder="请输入内容" />
+            </el-form-item>
+            <el-form-item label="任务说明">
+              <el-input v-model="form.info" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" placeholder="请输入任务说明" />
+            </el-form-item>
+            <el-form-item label="任务备注">
+              <el-input v-model="form.remark" type="textarea" :autosize="{ minRows: 2, maxRows: 4}" placeholder="请输入任务备注" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <input type="file" style="visibility: hidden" class="icon" @change="val => uploadFile(val, ['form','icon'])">
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.sonType=false"
+        >取 消</el-button>
+        <el-button type="primary" :loading="tableData.loading" size="small" @click="updateSubmitSonType">提交</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 图标 -->
+    <el-dialog
+      title="图标展示"
+      center
+      :visible.sync="dialogVisible.imgVisible"
+      width="30%"
+    >
+      <el-image :src="editImg.icon" />
+    </el-dialog>
+
+    <el-dialog :visible.sync="dialogVisible.Show" width="550px" title="礼物信息框" center style="z-index: 9999">
+      <el-table
+        v-loading="tableData.loading"
+        :data="tableData.arrayGife"
+        element-loading-text="Loading"
+        border
+        fit
+        style="width: 100%"
+        highlight-current-row
+        @selection-change="selsChange"
+      >
+        <!-- 复选框 -->
+        <el-table-column align="center" type="selection" />
+        <el-table-column label="介绍" align="center">
+          <template slot-scope="scope">
+            <span>{{ scope.row.letter }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column align="center" label="是否启用">
+          <template slot-scope="scope">{{ map.piles[scope.row.isInUse] }}</template>
+        </el-table-column>
+        <el-table-column label="小图标" align="center">
+          <template slot-scope="scope">
+            <el-image
+              style="width:80px;height:80px"
+              :src="scope.row.icon"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="大图标" align="center">
+          <template slot-scope="scope">
+            <el-image
+              style="width:80px;height:80px"
+              :src="scope.row.bigIcon"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="价值" align="center">
+          <template slot-scope="scope">{{ scope.row.cost }}</template>
+        </el-table-column>
+      </el-table>
+      <div slot="footer" class="dialog-footer">
+        <el-button
+          size="small"
+          @click="dialogVisible.Show=false"
+        >取 消</el-button>
+        <el-button
+          type="primary"
+          :loading="tableData.loading"
+          size="small"
+          :disabled="sels.length===0"
+          @click="updateSubmitShow(sels)"
+        >提交</el-button>
+      </div>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { dayTaskList, updateDayTask, deleteBatch, dayTaskmaxDay } from '@/api/taskManagement'
+import { initForm, copyObject, clearEmptyItem } from '@/utils/index'
+import { uploadQNImg } from '@/api/user'
+import Pagination from '@/components/Pagination'
+import { findByAll } from '@/api/activity'
+export default {
+  components: {
+    Pagination
+  },
+  data() {
+    return {
+      activeName: 'first',
+      tableData: {
+        loading: false,
+        array: [],
+        row: {},
+        arrayGife: []
+      },
+      pager: {
+        pageNo: 1,
+        pageSize: 10,
+        total: 0,
+        type1: 1,
+        type2: 2
+      },
+      sels: [],
+      map: {
+        dayType: {
+          1: '撩币',
+          2: '惊喜礼包',
+          3: '豪华礼包'
+        },
+        sonType: {
+          0: '签到任务',
+          1: '发红包任务',
+          2: '送特殊礼物任务',
+          3: '拆盲盒任务',
+          4: '房间内送主播礼物任务',
+          5: '送主播钻石任务',
+          6: '爵位开通任务',
+          7: '视频分享任务',
+          8: '视频通话任务',
+          9: '每日首充任务'
+        },
+        day: {
+          1: '1',
+          2: '2',
+          3: '3',
+          4: '4',
+          5: '5',
+          6: '6',
+          7: []
+        },
+        piles: {
+          1: '是',
+          2: '否'
+        },
+        code: {
+          1: '启用',
+          0: '停用'
+        }
+      },
+      mode: '',
+      dialogVisible: {
+        allocation: false,
+        sonType: false,
+        imgVisible: false,
+        Show: false
+
+      },
+      editImg: '',
+      form: {
+        num: '',
+        coin: '',
+        sonType: '',
+        info: '',
+        icon: '',
+        day: '',
+        dayType: '',
+        ids: '',
+        remark: '',
+        title: '',
+        coinInfo: '',
+        failedWord: ''
+      }
+
+    }
+  },
+  created() {
+    this.first()
+    this.dayTaskmaxDay()
+  }, methods: {
+    // 获取签到任务时间
+    dayTaskmaxDay() {
+      this.tableData.loading = true
+      dayTaskmaxDay().then(res => {
+        this.map.day[7] = res.result
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    // 查询礼物
+    findByAll() {
+      this.tableData.loading = true
+      findByAll()
+        .then((res) => {
+          this.tableData.arrayGife = res.result
+
+        //   this.pager.total = res.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    selsChange(sels) {
+      this.sels = sels
+    },
+    // 签到任务
+    deleteFileOrDirectory() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的签到任务信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.first()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    // 每日任务批量删除
+    deleteSecond() {
+      const ids = this.sels.map((row) => row.id).join()
+      this.$confirm('确定要删除选中的每日任务信息吗?', '提示')
+        .then(() => {
+          deleteBatch({
+            ids: ids
+          }).then((data) => {
+            this.$message.success(data.message)
+            this.second()
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+        })
+    },
+    showDialog(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.allocation = true
+    },
+    async updateSubmit() {
+      this.tableData.loading = true
+      let _form = Object.assign({ id: this.tableData.row.id }, { type: this.pager.type1 }, this.form)
+      _form = clearEmptyItem(_form)
+      updateDayTask(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.allocation = false
+        this.first()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    fakeClick(className) {
+      const fileInput = document.querySelector(`input[type=file].${className}`)
+      fileInput.click()
+    },
+    // 每日任务
+    uploadFile(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+          this.$message.success(res.message)
+        })
+      }
+    },
+    // 签到任务
+    uploadFiles(e, target) {
+      const files = e.target.files
+      if (files.length) {
+        const formData = new FormData()
+        formData.append('multipartFile', files[0])
+        uploadQNImg(formData).then(res => {
+          this[target[0]][target[1]] = res.data
+          this.$message.success(res.message)
+        })
+      }
+    },
+    // 每日任务新增
+    show(mode, item) {
+      this.mode = mode
+      this.tableData.row = item || {}
+      this.form = initForm(this.form)
+      if (mode === 'edit') {
+        this.form = copyObject(this.form, item, { numberToString: true })
+      }
+      this.dialogVisible.sonType = true
+    },
+    async  updateSubmitSonType() {
+      this.tableData.loading = true
+      let _form = Object.assign({ type: this.pager.type2 }, { id: this.tableData.row.id }, this.form)
+      _form = clearEmptyItem(_form)
+      updateDayTask(_form, this.mode).then(res => {
+        this.$message.success(res.message)
+        this.dialogVisible.sonType = false
+        this.second()
+      }).finally(_ => {
+        this.tableData.loading = false
+      })
+    },
+    handleClick(tab) {
+      if (tab.name === 'first') {
+        this.first()
+      } else {
+        this.second()
+      }
+    },
+    first() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize, // 条数
+        type: this.pager.type1
+      })
+      dayTaskList(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    second() {
+      this.tableData.loading = true
+      const _form = Object.assign({
+        pageNo: this.pager.pageNo, // 页数
+        pageSize: this.pager.pageSize, // 条数
+        type: this.pager.type2
+      })
+      dayTaskList(_form)
+        .then((res) => {
+          const { result = {}} = res
+          this.tableData.array = result.records
+          this.pager.total = result.total // 总数
+        }).finally(_ => {
+          this.tableData.loading = false
+        })
+    },
+    handlePagerChange(val) {
+      this.pager.pageNo = val.index
+      this.pager.pageSize = val.size
+      this.first()
+    },
+    changeImg(row) {
+      this.dialogVisible.imgVisible = true
+      this.editImg = row
+    },
+
+    handlShow() {
+      this.dialogVisible.Show = true
+      this.findByAll()
+    },
+    // 提交选择的礼物
+    updateSubmitShow() {
+      // const icon = this.sels.map(row => row.icon).join()
+      const ids = this.sels.map(row => row.id).join()
+      this.form.ids = ids
+      // this.form.icon = icon
+      this.dialogVisible.Show = false
+      this.findByAll()
+    },
+    handleSwitch(code, id) {
+      updateDayTask({
+        id,
+        code
+      }, 'edit').then(res => {
+        this.$message.success(res.message)
+        this.second()
+      })
+    },
+    // 查看奖品
+    lookClick(row) {
+      this.$router.push({ path: '/taskManagement/index', query: { ids: row.ids }})
+    }
+
+  }
+}
+
+</script>
+<style scoped lang='scss'>
+.icon-container{
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  border: 1px dashed #ccc;
+  position: relative;
+  cursor: pointer;
+  i{
+    display: block;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+  }
+}
+
+</style>

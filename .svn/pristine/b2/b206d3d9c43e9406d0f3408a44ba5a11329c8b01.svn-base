@@ -1,0 +1,277 @@
+<template>
+  <div class="navbar">
+    <hamburger :is-active="sidebar.opened" class="hamburger-container" @toggleClick="toggleSideBar" />
+
+    <breadcrumb class="breadcrumb-container" />
+
+    <div class="right-menu">
+      <!-- <message /> -->
+      <!-- <el-dropdown trigger="click" style="display:inline-block;height: 100%; line-height: 50px;" class="message" @command="handleCommand">
+        <i class="el-icon-message" :class="showHot ? 'is-hot animation-blink' : ''" style="font-size: 20px" @click="handleReadMessage" />
+        <el-dropdown-menu slot="dropdown" class="messages-dropdown">
+          <div v-if="clientKeyLength">
+            <el-dropdown-item v-for="(value,key) in clientMap" :key="key" divided class="message-dropdown-item" :command="key">
+              <div style="display:flex" :class="value.isHot ? 'is-hot' : ''">
+                <i class="el-icon-s-custom fix-icon" />
+                <div style="overflow:hidden">
+                  <div style="color: #ccc" class="text-overflow message-dropdown">客服：{{ key }}</div>
+                  <div class="text-overflow message-dropdown">内容：{{ value.msgTxt }}</div>
+                </div>
+              </div>
+            </el-dropdown-item>
+          </div>
+          <div v-else class="empty-message">
+            暂无消息
+          </div>
+        </el-dropdown-menu>
+      </el-dropdown> -->
+      <el-dropdown class="avatar-container" trigger="click">
+        <i class="el-icon-caret-bottom" />
+        <el-dropdown-menu slot="dropdown" class="user-dropdown">
+          <el-dropdown-item divided @click.native="logout">
+            <span style="display:block;">退出登录</span>
+          </el-dropdown-item>
+        </el-dropdown-menu>
+      </el-dropdown>
+    </div>
+  </div>
+</template>
+
+<script>
+import { mutualEdit } from '@/api/user'
+import { mapGetters } from 'vuex'
+import Breadcrumb from '@/components/Breadcrumb'
+import Hamburger from '@/components/Hamburger'
+// import Message from './Message'
+
+export default {
+  components: {
+    Breadcrumb,
+    Hamburger
+    // Message
+  },
+  data() {
+    return {
+      ws: '',
+      limitConnect: 4,
+      showHot: false,
+      clientKeyLength: false,
+      clientMap: {
+        // test: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test1: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test2: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test3: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test4: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test5: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test6: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test7: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test8: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test9: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test10: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test11: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test12: { msgId: 123, msgTxt: 'test message', isHot: true },
+        // test13: { msgId: 123, msgTxt: 'test message', isHot: true }
+      }
+    }
+  },
+  computed: {
+    ...mapGetters([
+      'sidebar',
+      'avatar'
+    ])
+  },
+  created() {
+    const _keys = Object.keys(this.clientMap)
+    this.clientKeyLength = !!_keys.length
+    // this.createWebSocket()
+  },
+  methods: {
+    handleCommand(id) {
+      this.clientMap[id].isHot = false
+      if (process.env.NODE_ENV === 'development') {
+        window.open('http://localhost:8080/#/contact?username=' + id)
+      } else {
+        window.open('./webIm.html#/contact?username=' + id)
+      }
+    },
+    handleReadMessage() {
+      if (this.showHot) {
+        const _keys = Object.keys(this.clientMap)
+        _keys.forEach(key => {
+          this.clientMap[key].isHot && mutualEdit({
+            id: this.clientMap[key].msgId,
+            readStatus: 1
+          }).then(res => { this.clientMap[key].isHot = false })
+        })
+        this.showHot = false
+      }
+    },
+    createWebSocket() {
+      const { id } = JSON.parse(localStorage.getItem('userInfo') || '{}')
+      const url = `ws://156.227.6.132:18203/chat/websocket/${id}`
+      this.ws = new WebSocket(url)
+      this.ws.onopen = () => { console.log('%c连接成功', 'color:green') }
+      this.ws.onclose = () => {
+        console.log('连接已断开')
+        this.reconnect()
+      }
+      this.ws.onmessage = (e) => {
+        this.showHot = true
+        const redata = JSON.parse(e.data)
+        const { msgId, msgTxt, imNumber } = redata
+        this.clientMap[imNumber] = { msgId, msgTxt, isHot: true }
+        const _keys = Object.keys(this.clientMap)
+        this.clientKeyLength = !!_keys.length
+      }
+    },
+    reconnect() {
+      if (this.limitConnect) {
+        this.limitConnect--
+        console.log('2秒后尝试重连')
+        setTimeout(() => {
+          this.createWebSocket()
+        }, 2000)
+      }
+    },
+    toggleSideBar() {
+      this.$store.dispatch('app/toggleSideBar')
+    },
+    async logout() {
+      await this.$store.dispatch('user/logout')
+      this.$router.push(`/login?redirect=${this.$route.fullPath}`)
+    }
+  }
+}
+</script>
+
+<style lang="scss" scoped>
+.el-dropdown-menu.messages-dropdown{
+  width: 260px;
+  max-height: 350px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.empty-message{
+  width: 100%;
+  line-height: 100px;
+  color: #ccc;
+  text-align: center;
+  font-size: 14px;
+}
+.fix-icon{
+  font-size: 32px;
+  color: #ccc;
+  line-height: 52px;
+  margin-right: 12px;
+}
+.message-dropdown{
+  line-height: 26px;
+}
+.animation-blink {
+  animation: blink infinite .8s;
+}
+.is-hot{
+  position: relative;
+  &::after{
+    content: '';
+    display: block;
+    position: absolute;
+    right: -4px;
+    top: -4px;
+    width: 8px;
+    height: 8px;
+    border: 1px solid #fff;
+    background: #F56C6C;
+    border-radius: 50%;
+  }
+}
+@keyframes blink {
+  0%{
+    opacity: 1;
+  }
+  50%{
+    opacity: 0;
+  }
+  100%{
+    opacity: 1;
+  }
+}
+.navbar {
+  height: 50px;
+  overflow: hidden;
+  position: relative;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,21,41,.08);
+
+  .hamburger-container {
+    line-height: 46px;
+    height: 100%;
+    float: left;
+    cursor: pointer;
+    transition: background .3s;
+    -webkit-tap-highlight-color:transparent;
+
+    &:hover {
+      background: rgba(0, 0, 0, .025)
+    }
+  }
+
+  .breadcrumb-container {
+    float: left;
+  }
+
+  .right-menu {
+    float: right;
+    height: 100%;
+    // line-height: 50px;
+
+    &:focus {
+      outline: none;
+    }
+
+    .right-menu-item {
+      display: inline-block;
+      padding: 0 8px;
+      height: 100%;
+      font-size: 18px;
+      color: #5a5e66;
+      vertical-align: text-bottom;
+
+      &.hover-effect {
+        cursor: pointer;
+        transition: background .3s;
+
+        &:hover {
+          background: rgba(0, 0, 0, .025)
+        }
+      }
+    }
+
+    .avatar-container {
+      margin: 0 10px;
+      cursor: pointer;
+      outline: none;
+
+      .avatar-wrapper {
+        margin-top: 5px;
+        position: relative;
+
+        .user-avatar {
+          cursor: pointer;
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+        }
+
+        .el-icon-caret-bottom {
+          cursor: pointer;
+          position: absolute;
+          right: -20px;
+          top: 8px;
+          font-size: 12px;
+        }
+      }
+    }
+  }
+}
+</style>
